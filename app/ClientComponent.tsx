@@ -56,8 +56,31 @@ export default function BudgetPlanner() {
   const [billPaycheckAmounts, setBillPaycheckAmounts] = useState<BillPaycheckAmount[]>([]);
   const [oneTimeSavingsTotal, setOneTimeSavingsTotal] = useState<number>(0);
   const [isSavingIncome, setIsSavingIncome] = useState(false);
+  // Track manual bill-to-paycheck assignments (when user moves bills)
+  const [billAssignments, setBillAssignments] = useState<Record<string, string>>({});
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { user, logout } = useAuth();
+
+  // Load bill assignments from localStorage
+  useEffect(() => {
+    const saved = localStorage.getItem('billAssignments');
+    if (saved) {
+      try {
+        setBillAssignments(JSON.parse(saved));
+      } catch (e) {
+        console.error('Failed to parse bill assignments:', e);
+      }
+    }
+  }, []);
+
+  // Save bill assignments to localStorage
+  const saveBillAssignment = (billInstanceId: string, paycheckDate: string) => {
+    setBillAssignments(prev => {
+      const updated = { ...prev, [billInstanceId]: paycheckDate };
+      localStorage.setItem('billAssignments', JSON.stringify(updated));
+      return updated;
+    });
+  };
 
   // Fetch all data on mount when user is logged in
   useEffect(() => {
@@ -749,44 +772,71 @@ export default function BudgetPlanner() {
     // Allocate bills - ALWAYS assign every bill to a paycheck
     sortedBills.forEach((bill) => {
       const billDueDate = createDate(bill.dueDate);
+      let bestSlot: { index: number; score: number; isCriticallyLate: boolean; isUnderfunded: boolean } | null = null;
 
-      // First try: Find slot with available funds
-      let bestSlot = findBestAllocationSlot(bill, allocations, true);
-
-      // Second try: If no funded slot, find any slot (will be marked underfunded)
-      if (!bestSlot) {
-        bestSlot = findBestAllocationSlot(bill, allocations, false);
-      }
-
-      // Last resort: Assign to the closest paycheck after due date
-      if (!bestSlot) {
-        const allowableLateDay = bill.allowableLateDay || 0;
-        const maxLateDays = allowableLateDay + GRACE_PERIOD;
-
-        // Find the closest paycheck that's not too early
-        let closestIndex = -1;
-        let closestDiff = Infinity;
-
-        allocations.forEach((alloc, index) => {
-          const daysDiff = getDaysBetween(billDueDate, alloc.payDate);
-          // Find any paycheck that's after the due date (or close to it)
-          if (daysDiff >= -payPeriodLength) {
-            const absDiff = Math.abs(daysDiff);
-            if (absDiff < closestDiff) {
-              closestDiff = absDiff;
-              closestIndex = index;
-            }
-          }
+      // Check if user manually assigned this bill to a specific paycheck
+      if (bill.instanceId && billAssignments[bill.instanceId]) {
+        const assignedPaycheckDate = billAssignments[bill.instanceId];
+        const assignedIndex = allocations.findIndex(alloc => {
+          const allocDateStr = alloc.payDate.toISOString().split('T')[0];
+          return allocDateStr === assignedPaycheckDate;
         });
 
-        if (closestIndex >= 0) {
-          const daysDiff = getDaysBetween(billDueDate, allocations[closestIndex].payDate);
+        if (assignedIndex >= 0) {
+          const alloc = allocations[assignedIndex];
+          const daysDiff = getDaysBetween(billDueDate, alloc.payDate);
+          const allowableLateDay = bill.allowableLateDay || 0;
+          const availableFunds = alloc.paycheckAmount - alloc.usedFunds;
+          const hasEnoughFunds = bill.paymentAmount <= availableFunds;
+
           bestSlot = {
-            index: closestIndex,
-            score: 0,
+            index: assignedIndex,
+            score: 100,
             isCriticallyLate: daysDiff > allowableLateDay,
-            isUnderfunded: true
+            isUnderfunded: !hasEnoughFunds
           };
+        }
+      }
+
+      // If no manual assignment, use automatic allocation
+      if (!bestSlot) {
+        // First try: Find slot with available funds
+        bestSlot = findBestAllocationSlot(bill, allocations, true);
+
+        // Second try: If no funded slot, find any slot (will be marked underfunded)
+        if (!bestSlot) {
+          bestSlot = findBestAllocationSlot(bill, allocations, false);
+        }
+
+        // Last resort: Assign to the closest paycheck after due date
+        if (!bestSlot) {
+          const allowableLateDay = bill.allowableLateDay || 0;
+
+          // Find the closest paycheck that's not too early
+          let closestIndex = -1;
+          let closestDiff = Infinity;
+
+          allocations.forEach((alloc, index) => {
+            const daysDiff = getDaysBetween(billDueDate, alloc.payDate);
+            // Find any paycheck that's after the due date (or close to it)
+            if (daysDiff >= -payPeriodLength) {
+              const absDiff = Math.abs(daysDiff);
+              if (absDiff < closestDiff) {
+                closestDiff = absDiff;
+                closestIndex = index;
+              }
+            }
+          });
+
+          if (closestIndex >= 0) {
+            const daysDiff = getDaysBetween(billDueDate, allocations[closestIndex].payDate);
+            bestSlot = {
+              index: closestIndex,
+              score: 0,
+              isCriticallyLate: daysDiff > allowableLateDay,
+              isUnderfunded: true
+            };
+          }
         }
       }
 
@@ -816,7 +866,7 @@ export default function BudgetPlanner() {
 
     // Only return the requested number of pay periods
     setSchedule(allocations.slice(0, payDatesWithSources.length));
-  }, [bills, payDates, payDatesWithSources, income.miscPercent]);
+  }, [bills, payDates, payDatesWithSources, income.miscPercent, billAssignments]);
 
   // Generate suggestions from the schedule
 
@@ -908,8 +958,8 @@ export default function BudgetPlanner() {
     doc.setTextColor(23, 23, 23);
     doc.text("Budget Planner Report", 15, 15);
 
-    // Brown/tan accent line (Carhartt style)
-    doc.setDrawColor(139, 90, 43);
+    // Orange accent line
+    doc.setDrawColor(245, 158, 11);
     doc.setLineWidth(2);
     doc.line(15, 20, 75, 20);
 
@@ -921,23 +971,24 @@ export default function BudgetPlanner() {
     // =============== VISUAL DASHBOARD SECTION ===============
     const dashboardY = 38;
 
-    // Box 1: Income (Tan/Khaki - Carhartt style)
-    doc.setFillColor(210, 180, 140);
-    doc.roundedRect(15, dashboardY, 55, 35, 3, 3, 'F');
+    // Box 1: Income (White with grey border)
+    doc.setDrawColor(115, 115, 115);
+    doc.setFillColor(255, 255, 255);
+    doc.roundedRect(15, dashboardY, 55, 35, 3, 3, 'FD');
     doc.setFontSize(9);
-    doc.setTextColor(60, 40, 20);
+    doc.setTextColor(115, 115, 115);
     doc.text("MONTHLY INCOME", 20, dashboardY + 10);
     doc.setFontSize(16);
-    doc.setTextColor(40, 25, 10);
+    doc.setTextColor(23, 23, 23);
     doc.setFont("helvetica", "bold");
     doc.text(`$${monthlyIncome.toFixed(0)}`, 20, dashboardY + 22);
     doc.setFont("helvetica", "normal");
     doc.setFontSize(8);
-    doc.setTextColor(80, 55, 30);
+    doc.setTextColor(115, 115, 115);
     doc.text(`$${yearlyIncome.toFixed(0)}/year`, 20, dashboardY + 30);
 
-    // Box 2: Bills (Brown - Carhartt style)
-    doc.setFillColor(139, 90, 43);
+    // Box 2: Bills (Dark grey like header)
+    doc.setFillColor(23, 23, 23);
     doc.roundedRect(77, dashboardY, 55, 35, 3, 3, 'F');
     doc.setFontSize(9);
     doc.setTextColor(255, 255, 255);
@@ -949,11 +1000,11 @@ export default function BudgetPlanner() {
     doc.setFontSize(8);
     doc.text(`${bills.length} bills total`, 82, dashboardY + 30);
 
-    // Box 3: Savings Target (Dark Brown - Carhartt style)
-    doc.setFillColor(101, 67, 33);
+    // Box 3: Savings Target (Orange accent)
+    doc.setFillColor(245, 158, 11);
     doc.roundedRect(139, dashboardY, 55, 35, 3, 3, 'F');
     doc.setFontSize(9);
-    doc.setTextColor(255, 255, 255);
+    doc.setTextColor(23, 23, 23);
     doc.text("SAVINGS TARGET", 144, dashboardY + 10);
     doc.setFontSize(16);
     doc.setFont("helvetica", "bold");
@@ -977,8 +1028,8 @@ export default function BudgetPlanner() {
     doc.setFillColor(229, 229, 229);
     doc.roundedRect(15, progressY + 3, 180, 8, 2, 2, 'F');
 
-    // Progress bar (brown/tan)
-    doc.setFillColor(139, 90, 43);
+    // Progress bar (dark grey)
+    doc.setFillColor(64, 64, 64);
     const usageWidth = Math.min(averageUsagePercentage, 100) * 1.8;
     doc.roundedRect(15, progressY + 3, usageWidth, 8, 2, 2, 'F');
 
@@ -992,8 +1043,8 @@ export default function BudgetPlanner() {
     doc.setFillColor(229, 229, 229);
     doc.roundedRect(15, progressY + 23, 180, 8, 2, 2, 'F');
 
-    // Progress bar (dark brown)
-    doc.setFillColor(101, 67, 33);
+    // Progress bar (orange accent)
+    doc.setFillColor(245, 158, 11);
     const savingsWidth = Math.min(savingsProgressPercent, 100) * 1.8;
     if (savingsWidth > 0) {
       doc.roundedRect(15, progressY + 23, savingsWidth, 8, 2, 2, 'F');
@@ -1002,9 +1053,9 @@ export default function BudgetPlanner() {
     // =============== SUMMARY STATS ===============
     const statsY = progressY + 42;
 
-    doc.setFillColor(250, 245, 235);
+    doc.setFillColor(250, 250, 250);
     doc.rect(15, statsY, 180, 25, 'F');
-    doc.setDrawColor(210, 180, 140);
+    doc.setDrawColor(200, 200, 200);
     doc.rect(15, statsY, 180, 25, 'S');
 
     // Stats grid
@@ -1081,8 +1132,8 @@ export default function BudgetPlanner() {
     doc.setTextColor(23, 23, 23);
     doc.text("Payment Schedule", 15, 15);
 
-    // Brown accent line (Carhartt style)
-    doc.setDrawColor(139, 90, 43);
+    // Orange accent line
+    doc.setDrawColor(245, 158, 11);
     doc.setLineWidth(2);
     doc.line(15, 20, 55, 20);
 
@@ -1447,6 +1498,7 @@ export default function BudgetPlanner() {
               oneTimeSavingsTotal={oneTimeSavingsTotal}
               billPaycheckAmounts={billPaycheckAmounts}
               onUpdateBillPaycheckAmount={handleUpdateBillPaycheckAmount}
+              onBillMoved={saveBillAssignment}
             />
           </section>
         </div>

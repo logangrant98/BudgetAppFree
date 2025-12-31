@@ -59,6 +59,7 @@ interface PaymentScheduleProps {
   oneTimeSavingsTotal: number;
   billPaycheckAmounts: BillPaycheckAmount[];
   onUpdateBillPaycheckAmount: (billName: string, billDueDate: string, paycheckDate: string, amount: number) => Promise<void>;
+  onBillMoved?: (billInstanceId: string, paycheckDate: string) => void;
 }
 
 const formatCurrency = (value: number): string =>
@@ -96,7 +97,8 @@ export default function PaymentSchedule({
   onAddOneTimeSavings,
   oneTimeSavingsTotal,
   billPaycheckAmounts,
-  onUpdateBillPaycheckAmount
+  onUpdateBillPaycheckAmount,
+  onBillMoved
 }: PaymentScheduleProps) {
 
   const [showSuggestions, setShowSuggestions] = useState(true);
@@ -357,6 +359,28 @@ export default function PaymentSchedule({
 
           currentAlloc.usedFunds -= movedBill.paymentAmount;
           targetAlloc.usedFunds += movedBill.paymentAmount;
+
+          // Recalculate isUnderfunded for all bills in both affected paychecks
+          const recalculateUnderfunded = (alloc: typeof currentAlloc) => {
+            let runningTotal = 0;
+            // Sort bills by payment amount (largest first) to match original allocation logic
+            const sortedBills = [...alloc.bills].sort((a, b) => b.paymentAmount - a.paymentAmount);
+
+            sortedBills.forEach(bill => {
+              const wouldExceed = runningTotal + bill.paymentAmount > alloc.paycheckAmount;
+              bill.isUnderfunded = wouldExceed;
+              runningTotal += bill.paymentAmount;
+            });
+          };
+
+          recalculateUnderfunded(currentAlloc);
+          recalculateUnderfunded(targetAlloc);
+
+          // Save the bill assignment to persist the move
+          if (onBillMoved && movedBill.instanceId) {
+            const targetPaycheckDate = targetAlloc.payDate.toISOString().split('T')[0];
+            onBillMoved(movedBill.instanceId, targetPaycheckDate);
+          }
         }
       }
     }
@@ -896,7 +920,10 @@ export default function PaymentSchedule({
                               )}
                               {/* Underfunded Warning */}
                               {bill.isUnderfunded && !isPaid && (
-                                <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded text-xs font-semibold bg-red-500 text-white">
+                                <span
+                                  className="inline-flex items-center gap-1 px-2.5 py-1 rounded text-xs font-semibold bg-red-500 text-white cursor-help"
+                                  title="This paycheck doesn't have enough funds to cover this bill. Use the arrows to move it to a different pay period with more available funds."
+                                >
                                   <AlertTriangle className="w-3 h-3" />
                                   Underfunded
                                 </span>
