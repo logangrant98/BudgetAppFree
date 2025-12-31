@@ -15,8 +15,11 @@ import {
   X,
   DollarSign,
   Calendar,
-  PiggyBank
+  PiggyBank,
+  LogOut,
+  User
 } from "lucide-react";
+import { useAuth } from "./context/AuthContext";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import "../styles/globals.css";
@@ -52,6 +55,7 @@ export default function BudgetPlanner() {
   const [bills, setBills] = useState<Bill[]>([]);
   const [schedule, setSchedule] = useState<Allocation[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const { user, logout } = useAuth();
 
   // Helper function for consistent currency formatting
   const formatCurrency = (amount: number): string =>
@@ -657,6 +661,21 @@ export default function BudgetPlanner() {
                     <HelpCircle className="w-3 h-3" />
                     How to Use
                   </button>
+                  {user && (
+                    <div className="flex items-center gap-2">
+                      <span className="bg-neutral-800 text-neutral-300 px-3 py-1 rounded text-xs font-semibold border border-neutral-700 inline-flex items-center gap-1">
+                        <User className="w-3 h-3" />
+                        {user.name}
+                      </span>
+                      <button
+                        onClick={logout}
+                        className="bg-neutral-800 text-red-400 px-3 py-1 rounded text-xs font-semibold uppercase tracking-wide border border-neutral-700 hover:bg-red-500/20 hover:text-red-300 hover:border-red-500/50 transition-colors inline-flex items-center gap-1"
+                      >
+                        <LogOut className="w-3 h-3" />
+                        Logout
+                      </button>
+                    </div>
+                  )}
                 </div>
               </div>
 
