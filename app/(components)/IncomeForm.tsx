@@ -1,7 +1,7 @@
 "use client";
-import React, { useMemo, useEffect } from "react";
+import React, { useMemo, useEffect, useState } from "react";
 import { Income, IncomeSource } from "./types";
-import { DollarSign, PiggyBank, Calendar, Plus, Trash2, Briefcase } from "lucide-react";
+import { DollarSign, PiggyBank, Calendar, Plus, Trash2, Briefcase, Save, Loader2 } from "lucide-react";
 import '../../styles/globals.css';
 
 interface IncomeFormProps {
@@ -9,6 +9,8 @@ interface IncomeFormProps {
   setIncomeAction: React.Dispatch<React.SetStateAction<Income>>;
   showMonthsField?: boolean;
   onSavingsCalculated?: (savings: { monthly: number; total: number; percent: number }) => void;
+  onSaveIncome?: () => Promise<void>;
+  isSaving?: boolean;
 }
 
 // Helper function to generate unique IDs
@@ -31,7 +33,9 @@ const calculateMonthlyForSource = (source: IncomeSource): number => {
 export default function IncomeForm({
   income,
   setIncomeAction,
-  onSavingsCalculated
+  onSavingsCalculated,
+  onSaveIncome,
+  isSaving = false
 }: IncomeFormProps) {
 
   const handleSourceChange = (id: string, field: keyof IncomeSource, value: string | number) => {
@@ -276,6 +280,27 @@ export default function IncomeForm({
               className="block w-full rounded border border-neutral-300 bg-neutral-50 text-neutral-900 py-2.5 px-3 text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition-colors"
             />
           </div>
+
+          {/* Save Income Button */}
+          {onSaveIncome && (
+            <button
+              onClick={onSaveIncome}
+              disabled={isSaving || income.sources.length === 0}
+              className="w-full bg-primary-500 text-neutral-900 py-2.5 px-4 rounded font-semibold hover:bg-primary-400 transition-colors flex items-center justify-center gap-2 text-sm disabled:opacity-50 disabled:cursor-not-allowed mt-4"
+            >
+              {isSaving ? (
+                <>
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  Saving...
+                </>
+              ) : (
+                <>
+                  <Save className="w-4 h-4" />
+                  Save Income
+                </>
+              )}
+            </button>
+          )}
         </div>
       </div>
     </div>

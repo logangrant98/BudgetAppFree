@@ -54,11 +54,63 @@ export default function BudgetPlanner() {
   const [paycheckSavings, setPaycheckSavings] = useState<PaycheckSavings[]>([]);
   const [billPayments, setBillPayments] = useState<BillPayment[]>([]);
   const [oneTimeSavingsTotal, setOneTimeSavingsTotal] = useState<number>(0);
+  const [isSavingIncome, setIsSavingIncome] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { user, logout } = useAuth();
 
-  // Fetch one-time bills, paycheck savings, and bill payments on mount when user is logged in
+  // Fetch all data on mount when user is logged in
   useEffect(() => {
+    const fetchIncome = async () => {
+      if (!user) return;
+      try {
+        const response = await fetch('/api/income');
+        if (response.ok) {
+          const data = await response.json();
+          if (data.sources && data.sources.length > 0) {
+            setIncome({
+              sources: data.sources.map((s: { id: string; name: string; amount: number; frequency: string; lastPayDate: string; firstPayDay?: number; secondPayDay?: number }) => ({
+                id: s.id,
+                name: s.name,
+                amount: s.amount,
+                frequency: s.frequency as "weekly" | "biweekly" | "twicemonthly" | "monthly",
+                lastPayDate: s.lastPayDate,
+                firstPayDay: s.firstPayDay,
+                secondPayDay: s.secondPayDay
+              })),
+              miscPercent: data.settings?.miscPercent || 30,
+              monthsToShow: data.settings?.monthsToShow || 1
+            });
+          }
+        }
+      } catch (error) {
+        console.error('Failed to fetch income:', error);
+      }
+    };
+
+    const fetchBills = async () => {
+      if (!user) return;
+      try {
+        const response = await fetch('/api/bills');
+        if (response.ok) {
+          const data = await response.json();
+          if (data && data.length > 0) {
+            setBills(data.map((b: { id: string; name: string; paymentAmount: number; apr: number; remainingBalance: number; dueDate: string; billType: string; allowableLateDay: number }) => ({
+              id: b.id,
+              name: b.name,
+              paymentAmount: b.paymentAmount,
+              apr: b.apr,
+              remainingBalance: b.remainingBalance,
+              dueDate: b.dueDate,
+              billType: b.billType as "recurring" | "one-time" | "other",
+              allowableLateDay: b.allowableLateDay
+            })));
+          }
+        }
+      } catch (error) {
+        console.error('Failed to fetch bills:', error);
+      }
+    };
+
     const fetchOneTimeBills = async () => {
       if (!user) return;
       try {
@@ -104,6 +156,8 @@ export default function BudgetPlanner() {
       setOneTimeSavingsTotal(parseFloat(savedOneTimeSavings));
     }
 
+    fetchIncome();
+    fetchBills();
     fetchOneTimeBills();
     fetchPaycheckSavings();
     fetchBillPayments();
@@ -250,6 +304,54 @@ export default function BudgetPlanner() {
     const newTotal = oneTimeSavingsTotal + amount;
     setOneTimeSavingsTotal(newTotal);
     localStorage.setItem('oneTimeSavingsTotal', newTotal.toString());
+  };
+
+  // Handler to save income to database
+  const handleSaveIncome = async () => {
+    if (!user) return;
+    setIsSavingIncome(true);
+    try {
+      const response = await fetch('/api/income', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          sources: income.sources,
+          miscPercent: income.miscPercent,
+          monthsToShow: income.monthsToShow
+        }),
+      });
+      if (!response.ok) {
+        throw new Error('Failed to save income');
+      }
+    } catch (error) {
+      console.error('Failed to save income:', error);
+    } finally {
+      setIsSavingIncome(false);
+    }
+  };
+
+  // Handler to add a bill to database
+  const handleAddBill = async (bill: Omit<Bill, 'id'>): Promise<Bill | null> => {
+    if (!user) return null;
+    try {
+      const response = await fetch('/api/bills', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(bill),
+      });
+      if (response.ok) {
+        const savedBill = await response.json();
+        return savedBill;
+      } else if (response.status === 409) {
+        // Duplicate bill
+        console.warn('A bill with this name and due date already exists');
+        return null;
+      }
+      throw new Error('Failed to add bill');
+    } catch (error) {
+      console.error('Failed to add bill:', error);
+      return null;
+    }
   };
 
   // Calculate default savings for a paycheck based on percentage
@@ -1251,8 +1353,13 @@ export default function BudgetPlanner() {
               income={income}
               setIncomeAction={setIncome}
               onSavingsCalculated={handleSavingsCalculated}
+              onSaveIncome={user ? handleSaveIncome : undefined}
+              isSaving={isSavingIncome}
             />
-            <BillForm setBillsAction={setBills} />
+            <BillForm
+              setBillsAction={setBills}
+              onAddBill={user ? handleAddBill : undefined}
+            />
           </aside>
 
           {/* Main Content Area */}

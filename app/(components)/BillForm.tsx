@@ -2,10 +2,11 @@
 import React, { useState } from "react";
 import { Bill } from "./types";
 import { v4 as uuidv4 } from "uuid";
-import { Calendar, DollarSign, Clock, Percent, Plus } from "lucide-react";
+import { Calendar, DollarSign, Clock, Percent, Plus, Loader2 } from "lucide-react";
 
 interface BillFormProps {
   setBillsAction: React.Dispatch<React.SetStateAction<Bill[]>>;
+  onAddBill?: (bill: Omit<Bill, 'id'>) => Promise<Bill | null>;
 }
 
 // Extend the Bill interface to include allowableLateDay
@@ -13,7 +14,7 @@ interface ExtendedBill extends Bill {
   allowableLateDay: number;
 }
 
-export default function BillForm({ setBillsAction }: BillFormProps) {
+export default function BillForm({ setBillsAction, onAddBill }: BillFormProps) {
   const [newBill, setNewBill] = useState<ExtendedBill>({
     name: "",
     paymentAmount: 0,
@@ -23,6 +24,7 @@ export default function BillForm({ setBillsAction }: BillFormProps) {
     billType: "recurring",
     allowableLateDay: 0
   });
+  const [isSaving, setIsSaving] = useState(false);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
@@ -33,33 +35,60 @@ export default function BillForm({ setBillsAction }: BillFormProps) {
     }));
   };
 
-  const handleAddBill = () => {
+  const handleAddBill = async () => {
     if (!newBill.name || !newBill.dueDate || newBill.paymentAmount <= 0) return;
 
-    setBillsAction((prev) => {
-      const isDuplicate = prev.some(
-        (bill) => bill.name === newBill.name && bill.dueDate === newBill.dueDate
-      );
-      return isDuplicate
-        ? prev
-        : [
-            ...prev,
-            {
-              ...newBill,
-              id: uuidv4(),
-            },
-          ];
-    });
+    setIsSaving(true);
 
-    setNewBill({
-      name: "",
-      paymentAmount: 0,
-      apr: 0,
-      remainingBalance: 0,
-      dueDate: "",
-      billType: "recurring",
-      allowableLateDay: 0
-    });
+    try {
+      // If onAddBill is provided, save to database
+      if (onAddBill) {
+        const savedBill = await onAddBill({
+          name: newBill.name,
+          paymentAmount: newBill.paymentAmount,
+          apr: newBill.apr,
+          remainingBalance: newBill.remainingBalance,
+          dueDate: newBill.dueDate,
+          billType: newBill.billType,
+          allowableLateDay: newBill.allowableLateDay
+        });
+
+        if (savedBill) {
+          // Add the saved bill (with server-generated id) to local state
+          setBillsAction((prev) => [...prev, savedBill]);
+        }
+      } else {
+        // Fallback: just add to local state
+        setBillsAction((prev) => {
+          const isDuplicate = prev.some(
+            (bill) => bill.name === newBill.name && bill.dueDate === newBill.dueDate
+          );
+          return isDuplicate
+            ? prev
+            : [
+                ...prev,
+                {
+                  ...newBill,
+                  id: uuidv4(),
+                },
+              ];
+        });
+      }
+
+      setNewBill({
+        name: "",
+        paymentAmount: 0,
+        apr: 0,
+        remainingBalance: 0,
+        dueDate: "",
+        billType: "recurring",
+        allowableLateDay: 0
+      });
+    } catch (error) {
+      console.error('Failed to add bill:', error);
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   return (
@@ -188,10 +217,20 @@ export default function BillForm({ setBillsAction }: BillFormProps) {
         {/* Submit Button */}
         <button
           onClick={handleAddBill}
-          className="w-full bg-primary-500 text-neutral-900 py-2.5 px-4 rounded font-semibold hover:bg-primary-400 transition-colors flex items-center justify-center gap-2 text-sm"
+          disabled={isSaving || !newBill.name || !newBill.dueDate || newBill.paymentAmount <= 0}
+          className="w-full bg-primary-500 text-neutral-900 py-2.5 px-4 rounded font-semibold hover:bg-primary-400 transition-colors flex items-center justify-center gap-2 text-sm disabled:opacity-50 disabled:cursor-not-allowed"
         >
-          <Plus className="w-4 h-4" />
-          Add Bill
+          {isSaving ? (
+            <>
+              <Loader2 className="w-4 h-4 animate-spin" />
+              Adding...
+            </>
+          ) : (
+            <>
+              <Plus className="w-4 h-4" />
+              Add Bill
+            </>
+          )}
         </button>
       </div>
     </div>
