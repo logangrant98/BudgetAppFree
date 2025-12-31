@@ -158,20 +158,16 @@ export default function BillForm({ setBillsAction, onAddBill }: BillFormProps) {
         {/* Due Date */}
         <div>
           <label className="block text-xs font-semibold text-neutral-500 uppercase tracking-wide mb-2">
+            <Calendar className="h-3 w-3 text-neutral-400 inline-block mr-1" />
             Due Date
           </label>
-          <div className="relative">
-            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-              <Calendar className="h-4 w-4 text-neutral-400" />
-            </div>
-            <input
-              type="date"
-              name="dueDate"
-              value={newBill.dueDate}
-              onChange={handleChange}
-              className="pl-10 block w-full rounded border border-neutral-300 bg-neutral-50 text-neutral-900 py-2.5 text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition-colors"
-            />
-          </div>
+          <input
+            type="date"
+            name="dueDate"
+            value={newBill.dueDate}
+            onChange={handleChange}
+            className="block w-full rounded border border-neutral-300 bg-neutral-50 text-neutral-900 py-2.5 px-3 text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition-colors"
+          />
         </div>
 
         {/* Allowable Late Days */}
