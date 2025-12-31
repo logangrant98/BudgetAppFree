@@ -11,18 +11,19 @@ datasource db {
 }
 
 model User {
-  id              String            @id @default(cuid())
-  email           String            @unique
-  name            String
-  password        String
-  createdAt       DateTime          @default(now())
-  updatedAt       DateTime          @updatedAt
-  oneTimeBills    OneTimeBill[]
-  paycheckSavings PaycheckSavings[]
-  billPayments    BillPayment[]
-  incomeSources   IncomeSource[]
-  bills           Bill[]
-  incomeSettings  IncomeSettings?
+  id                  String               @id @default(cuid())
+  email               String               @unique
+  name                String
+  password            String
+  createdAt           DateTime             @default(now())
+  updatedAt           DateTime             @updatedAt
+  oneTimeBills        OneTimeBill[]
+  paycheckSavings     PaycheckSavings[]
+  billPayments        BillPayment[]
+  incomeSources       IncomeSource[]
+  bills               Bill[]
+  incomeSettings      IncomeSettings?
+  billPaycheckAmounts BillPaycheckAmount[]
 }
 
 model IncomeSource {
@@ -111,6 +112,22 @@ model BillPayment {
   user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([userId, paycheckDate, billName, billDueDate])
+  @@index([userId])
+  @@index([paycheckDate])
+}
+
+model BillPaycheckAmount {
+  id           String   @id @default(cuid())
+  userId       String
+  billName     String   // Name of the bill (to match with bill instances)
+  billDueDate  String   // Due date of the specific bill instance (YYYY-MM-DD)
+  paycheckDate String   // The paycheck date this override is for (YYYY-MM-DD)
+  amount       Float    // Custom amount for this specific paycheck
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, billName, billDueDate, paycheckDate])
   @@index([userId])
   @@index([paycheckDate])
 }
