@@ -62,10 +62,15 @@ const BudgetPDFGenerator = ({
       ["Yearly Income", formatCurrency(yearlyIncome)],
       ["Savings Rate", `${income.miscPercent}%`],
     ]);
+    // Calculate actual statistics from user data
+    const totalBillsAmount = bills.reduce((sum, b) => sum + b.paymentAmount, 0);
+    const budgetUsage = monthlyIncome > 0 ? (totalBillsAmount / monthlyIncome) * 100 : 0;
+    const projectedSavings = monthlyIncome * (income.miscPercent / 100);
+
     drawSection(105, 25, 90, 45, "Statistics", [
-      ["Average Usage", `${(85.4).toFixed(1)}%`], // Example data
-      ["Total Bills", formatCurrency(1234.56)],
-      ["Projected Savings", formatCurrency(567.89)],
+      ["Budget Usage", formatPercentage(budgetUsage)],
+      ["Total Bills", formatCurrency(totalBillsAmount)],
+      ["Projected Savings", formatCurrency(projectedSavings)],
     ]);
     drawSection(200, 25, 90, 45, "Schedule", [
       ["Payment Periods", schedule.length.toString()],
