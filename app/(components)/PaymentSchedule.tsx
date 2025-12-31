@@ -1,6 +1,6 @@
 "use client";
 import React, { useState } from "react";
-import { Bill, OneTimeBill, AllocatedBill, PaycheckSavings, BillPayment } from "./types";
+import { Bill, OneTimeBill, AllocatedBill, PaycheckSavings, BillPayment, BillPaycheckAmount } from "./types";
 import AddOneTimeBillModal from "./AddOneTimeBillModal";
 import '../../styles/globals.css';
 
@@ -57,6 +57,8 @@ interface PaymentScheduleProps {
   onToggleBillPaid: (paycheckDate: string, billName: string, billDueDate: string, isPaid: boolean) => Promise<void>;
   onAddOneTimeSavings: (amount: number) => Promise<void>;
   oneTimeSavingsTotal: number;
+  billPaycheckAmounts: BillPaycheckAmount[];
+  onUpdateBillPaycheckAmount: (billName: string, billDueDate: string, paycheckDate: string, amount: number) => Promise<void>;
 }
 
 const formatCurrency = (value: number): string =>
@@ -92,7 +94,9 @@ export default function PaymentSchedule({
   billPayments,
   onToggleBillPaid,
   onAddOneTimeSavings,
-  oneTimeSavingsTotal
+  oneTimeSavingsTotal,
+  billPaycheckAmounts,
+  onUpdateBillPaycheckAmount
 }: PaymentScheduleProps) {
 
   const [showSuggestions, setShowSuggestions] = useState(true);
@@ -107,6 +111,10 @@ export default function PaymentSchedule({
   const [loadingBillPayments, setLoadingBillPayments] = useState<Set<string>>(new Set());
   const [loadingSavingsDeposited, setLoadingSavingsDeposited] = useState<Set<string>>(new Set());
   const [loadingOneTimeBills, setLoadingOneTimeBills] = useState<Set<string>>(new Set());
+  // State for editing bill amounts per paycheck
+  const [editingBillAmountKey, setEditingBillAmountKey] = useState<string | null>(null);
+  const [editingBillAmount, setEditingBillAmount] = useState<string>("");
+  const [savingBillAmounts, setSavingBillAmounts] = useState<Set<string>>(new Set());
 
   const handleOpenAddModal = (payDate: Date) => {
     // Format date as YYYY-MM-DD for the modal
@@ -257,6 +265,49 @@ export default function PaymentSchedule({
         return next;
       });
     }
+  };
+
+  // Get the bill amount for a specific paycheck (custom or default)
+  const getBillAmountForPaycheck = (billName: string, billDueDate: string, paycheckDate: string, defaultAmount: number): { amount: number; isCustom: boolean } => {
+    const customAmount = billPaycheckAmounts.find(
+      a => a.billName === billName && a.billDueDate === billDueDate && a.paycheckDate === paycheckDate
+    );
+    if (customAmount) {
+      return { amount: customAmount.amount, isCustom: true };
+    }
+    return { amount: defaultAmount, isCustom: false };
+  };
+
+  // Handle starting edit mode for bill amount
+  const handleStartEditBillAmount = (billKey: string, currentAmount: number) => {
+    setEditingBillAmountKey(billKey);
+    setEditingBillAmount(currentAmount.toString());
+  };
+
+  // Handle saving edited bill amount
+  const handleSaveBillAmount = async (billName: string, billDueDate: string, paycheckDate: string) => {
+    const amount = parseFloat(editingBillAmount);
+    if (!isNaN(amount) && amount >= 0) {
+      const billKey = `${paycheckDate}-${billName}-${billDueDate}`;
+      setSavingBillAmounts(prev => new Set(prev).add(billKey));
+      try {
+        await onUpdateBillPaycheckAmount(billName, billDueDate, paycheckDate, amount);
+      } finally {
+        setSavingBillAmounts(prev => {
+          const next = new Set(prev);
+          next.delete(billKey);
+          return next;
+        });
+      }
+    }
+    setEditingBillAmountKey(null);
+    setEditingBillAmount("");
+  };
+
+  // Handle canceling bill amount edit
+  const handleCancelEditBillAmount = () => {
+    setEditingBillAmountKey(null);
+    setEditingBillAmount("");
   };
 
   // Calculate total savings progress
@@ -730,11 +781,81 @@ export default function PaymentSchedule({
                             </div>
                           </td>
                           <td className="px-5 py-4 whitespace-nowrap text-right">
-                            <span className={`text-sm font-semibold transition-all duration-300 ${
-                              isPaid ? 'line-through text-neutral-400' : 'text-neutral-900'
-                            }`}>
-                              {formatCurrency(bill.paymentAmount)}
-                            </span>
+                            {(() => {
+                              const billAmountInfo = getBillAmountForPaycheck(bill.name, bill.dueDate, dateStr, bill.paymentAmount);
+                              const isEditingThisBill = editingBillAmountKey === billKey;
+                              const isSavingThisBill = savingBillAmounts.has(billKey);
+
+                              if (isEditingThisBill) {
+                                return (
+                                  <div className="flex items-center justify-end gap-1">
+                                    <div className="relative">
+                                      <DollarSign className="absolute left-2 top-1/2 -translate-y-1/2 w-3 h-3 text-neutral-400" />
+                                      <input
+                                        type="number"
+                                        value={editingBillAmount}
+                                        onChange={(e) => setEditingBillAmount(e.target.value)}
+                                        className="w-24 pl-6 pr-2 py-1 border border-neutral-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 bg-white text-neutral-900 text-right"
+                                        step="0.01"
+                                        min="0"
+                                        autoFocus
+                                        onKeyDown={(e) => {
+                                          if (e.key === 'Enter') {
+                                            handleSaveBillAmount(bill.name, bill.dueDate, dateStr);
+                                          } else if (e.key === 'Escape') {
+                                            handleCancelEditBillAmount();
+                                          }
+                                        }}
+                                      />
+                                    </div>
+                                    <button
+                                      onClick={() => handleSaveBillAmount(bill.name, bill.dueDate, dateStr)}
+                                      className="p-1 bg-green-500 text-white rounded hover:bg-green-600 transition-colors disabled:opacity-50"
+                                      title="Save"
+                                      disabled={isSavingThisBill}
+                                    >
+                                      {isSavingThisBill ? (
+                                        <Loader2 className="w-3 h-3 animate-spin" />
+                                      ) : (
+                                        <Check className="w-3 h-3" />
+                                      )}
+                                    </button>
+                                    <button
+                                      onClick={handleCancelEditBillAmount}
+                                      className="p-1 bg-neutral-200 text-neutral-600 rounded hover:bg-neutral-300 transition-colors"
+                                      title="Cancel"
+                                    >
+                                      <X className="w-3 h-3" />
+                                    </button>
+                                  </div>
+                                );
+                              }
+
+                              return (
+                                <button
+                                  onClick={() => handleStartEditBillAmount(billKey, billAmountInfo.amount)}
+                                  className={`group flex items-center justify-end gap-1 hover:bg-neutral-100 px-2 py-1 rounded transition-colors ${
+                                    isPaid ? 'cursor-default' : 'cursor-pointer'
+                                  }`}
+                                  disabled={isPaid}
+                                  title={isPaid ? "Bill is paid" : "Click to edit amount for this paycheck"}
+                                >
+                                  <span className={`text-sm font-semibold transition-all duration-300 ${
+                                    isPaid ? 'line-through text-neutral-400' : 'text-neutral-900'
+                                  }`}>
+                                    {formatCurrency(billAmountInfo.amount)}
+                                  </span>
+                                  {billAmountInfo.isCustom && !isPaid && (
+                                    <span className="px-1.5 py-0.5 text-xs font-semibold rounded bg-blue-100 text-blue-700 uppercase">
+                                      Custom
+                                    </span>
+                                  )}
+                                  {!isPaid && (
+                                    <Edit3 className="w-3 h-3 text-neutral-400 opacity-0 group-hover:opacity-100 transition-opacity" />
+                                  )}
+                                </button>
+                              );
+                            })()}
                           </td>
                           <td className="px-5 py-4 whitespace-nowrap text-right">
                             <span className={`text-sm ${isPaid ? 'text-neutral-400' : 'text-neutral-600'}`}>

@@ -67,3 +67,14 @@ export interface Bill {
     createdAt: string;
     updatedAt: string;
   }
+
+  export interface BillPaycheckAmount {
+    id: string;
+    userId: string;
+    billName: string;      // Name of the bill (to match with bill instances)
+    billDueDate: string;   // Due date of the specific bill instance (YYYY-MM-DD)
+    paycheckDate: string;  // The paycheck date this override is for (YYYY-MM-DD)
+    amount: number;        // Custom amount for this specific paycheck
+    createdAt: string;
+    updatedAt: string;
+  }

@@ -1,6 +1,6 @@
 "use client";
 import React, { useState, useMemo, useEffect, useRef } from "react";
-import { Income, IncomeSource, Bill, OneTimeBill, AllocatedBill, PaycheckSavings, BillPayment } from "./(components)/types";
+import { Income, IncomeSource, Bill, OneTimeBill, AllocatedBill, PaycheckSavings, BillPayment, BillPaycheckAmount } from "./(components)/types";
 import IncomeForm from "./(components)/IncomeForm";
 import BillForm from "./(components)/BillForm";
 import BillList from "./(components)/BillList/BillList";
@@ -53,6 +53,7 @@ export default function BudgetPlanner() {
   const [oneTimeBills, setOneTimeBills] = useState<OneTimeBill[]>([]);
   const [paycheckSavings, setPaycheckSavings] = useState<PaycheckSavings[]>([]);
   const [billPayments, setBillPayments] = useState<BillPayment[]>([]);
+  const [billPaycheckAmounts, setBillPaycheckAmounts] = useState<BillPaycheckAmount[]>([]);
   const [oneTimeSavingsTotal, setOneTimeSavingsTotal] = useState<number>(0);
   const [isSavingIncome, setIsSavingIncome] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -150,6 +151,19 @@ export default function BudgetPlanner() {
       }
     };
 
+    const fetchBillPaycheckAmounts = async () => {
+      if (!user) return;
+      try {
+        const response = await fetch('/api/bill-paycheck-amounts');
+        if (response.ok) {
+          const data = await response.json();
+          setBillPaycheckAmounts(data);
+        }
+      } catch (error) {
+        console.error('Failed to fetch bill paycheck amounts:', error);
+      }
+    };
+
     // Load one-time savings from localStorage
     const savedOneTimeSavings = localStorage.getItem('oneTimeSavingsTotal');
     if (savedOneTimeSavings) {
@@ -161,6 +175,7 @@ export default function BudgetPlanner() {
     fetchOneTimeBills();
     fetchPaycheckSavings();
     fetchBillPayments();
+    fetchBillPaycheckAmounts();
   }, [user]);
 
   // Handler to add a new one-time bill
@@ -304,6 +319,38 @@ export default function BudgetPlanner() {
     const newTotal = oneTimeSavingsTotal + amount;
     setOneTimeSavingsTotal(newTotal);
     localStorage.setItem('oneTimeSavingsTotal', newTotal.toString());
+  };
+
+  // Handler to update bill paycheck amount (override for specific paycheck)
+  const handleUpdateBillPaycheckAmount = async (
+    billName: string,
+    billDueDate: string,
+    paycheckDate: string,
+    amount: number
+  ) => {
+    try {
+      const response = await fetch('/api/bill-paycheck-amounts', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ billName, billDueDate, paycheckDate, amount }),
+      });
+      if (response.ok) {
+        const updatedAmount = await response.json();
+        setBillPaycheckAmounts((prev) => {
+          const existingIndex = prev.findIndex(
+            a => a.billName === billName && a.billDueDate === billDueDate && a.paycheckDate === paycheckDate
+          );
+          if (existingIndex >= 0) {
+            const newAmounts = [...prev];
+            newAmounts[existingIndex] = updatedAmount;
+            return newAmounts;
+          }
+          return [...prev, updatedAmount];
+        });
+      }
+    } catch (error) {
+      console.error('Failed to update bill paycheck amount:', error);
+    }
   };
 
   // Handler to save income to database
@@ -1381,6 +1428,8 @@ export default function BudgetPlanner() {
               onToggleBillPaid={handleToggleBillPaid}
               onAddOneTimeSavings={handleAddOneTimeSavings}
               oneTimeSavingsTotal={oneTimeSavingsTotal}
+              billPaycheckAmounts={billPaycheckAmounts}
+              onUpdateBillPaycheckAmount={handleUpdateBillPaycheckAmount}
             />
           </section>
         </div>
