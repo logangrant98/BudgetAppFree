@@ -20,6 +20,52 @@ model User {
   oneTimeBills    OneTimeBill[]
   paycheckSavings PaycheckSavings[]
   billPayments    BillPayment[]
+  incomeSources   IncomeSource[]
+  bills           Bill[]
+  incomeSettings  IncomeSettings?
+}
+
+model IncomeSource {
+  id            String   @id @default(cuid())
+  userId        String
+  name          String
+  amount        Float
+  frequency     String   // "weekly", "biweekly", "twicemonthly", "monthly"
+  lastPayDate   String
+  firstPayDay   Int?     // For twice monthly - first pay day of month
+  secondPayDay  Int?     // For twice monthly - second pay day of month
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+model IncomeSettings {
+  id           String   @id @default(cuid())
+  userId       String   @unique
+  miscPercent  Float    @default(30)  // Savings percentage
+  monthsToShow Int      @default(1)   // Months to project
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model Bill {
+  id               String   @id @default(cuid())
+  userId           String
+  name             String
+  paymentAmount    Float
+  apr              Float    @default(0)
+  remainingBalance Float    @default(0)
+  dueDate          String
+  billType         String   @default("recurring")  // "recurring", "one-time", "other"
+  allowableLateDay Int      @default(0)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+  user             User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
 }
 
 model OneTimeBill {
