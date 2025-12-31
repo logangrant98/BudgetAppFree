@@ -1188,10 +1188,10 @@ export default function BudgetPlanner() {
       <header className="bg-neutral-900 border-b-4 border-primary-500">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="py-6 sm:py-8">
-            <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-6">
+            <div className="flex flex-col lg:flex-row justify-between items-center gap-6">
               {/* Left Side - Title Section */}
-              <div>
-                <div className="flex items-center gap-3 mb-2">
+              <div className="text-center lg:text-left">
+                <div className="flex items-center justify-center lg:justify-start gap-3 mb-2">
                   <div className="bg-primary-500 p-2 rounded">
                     <Wallet className="text-neutral-900 w-6 h-6 sm:w-7 sm:h-7" />
                   </div>
@@ -1199,10 +1199,10 @@ export default function BudgetPlanner() {
                     BUDGET PLANNER
                   </h1>
                 </div>
-                <p className="text-neutral-400 text-sm ml-12">
+                <p className="text-neutral-400 text-sm">
                   Professional Financial Management
                 </p>
-                <div className="flex flex-wrap gap-2 mt-4 ml-12">
+                <div className="flex flex-wrap justify-center lg:justify-start gap-2 mt-4">
                   <span className="bg-neutral-800 text-primary-500 px-3 py-1 rounded text-xs font-semibold uppercase tracking-wide border border-neutral-700">
                     Free Tool
                   </span>
