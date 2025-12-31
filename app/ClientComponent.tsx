@@ -82,6 +82,8 @@ export default function BudgetPlanner() {
         return amount * 4.345;
       case "biweekly":
         return amount * 2;
+      case "twicemonthly":
+        return amount * 2; // Paid twice per month (e.g., 1st and 15th)
       case "monthly":
       default:
         return amount;
@@ -111,6 +113,41 @@ export default function BudgetPlanner() {
           date.setDate(startDate.getDate() + i * 14);
           payDatesArray.push(date);
         }
+        break;
+      case "twicemonthly":
+        // Generate pay dates on specific days each month (e.g., 1st and 15th)
+        const firstPayDay = income.firstPayDay || 1;
+        const secondPayDay = income.secondPayDay || 15;
+        const [earlierDay, laterDay] = firstPayDay < secondPayDay
+          ? [firstPayDay, secondPayDay]
+          : [secondPayDay, firstPayDay];
+
+        for (let i = 0; i < monthsToShow; i++) {
+          const year = startDate.getFullYear();
+          const month = startDate.getMonth() + i;
+
+          // Handle year rollover
+          const actualYear = year + Math.floor(month / 12);
+          const actualMonth = month % 12;
+
+          // Get the last day of this month to handle edge cases (e.g., day 31 in February)
+          const lastDayOfMonth = new Date(actualYear, actualMonth + 1, 0).getDate();
+
+          // First pay date of the month (use min to handle months with fewer days)
+          const firstDate = new Date(actualYear, actualMonth, Math.min(earlierDay, lastDayOfMonth));
+          // Only add if it's on or after the start date
+          if (firstDate >= startDate || i > 0) {
+            payDatesArray.push(firstDate);
+          }
+
+          // Second pay date of the month
+          const secondDate = new Date(actualYear, actualMonth, Math.min(laterDay, lastDayOfMonth));
+          if (secondDate >= startDate || i > 0) {
+            payDatesArray.push(secondDate);
+          }
+        }
+        // Sort to ensure chronological order and remove duplicates
+        payDatesArray.sort((a, b) => a.getTime() - b.getTime());
         break;
       case "monthly":
         for (let i = 0; i < monthsToShow; i++) {

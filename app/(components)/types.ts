@@ -12,8 +12,10 @@ export interface Bill {
   
   export interface Income {
     amount: number;
-    frequency: "weekly" | "biweekly" | "monthly";
+    frequency: "weekly" | "biweekly" | "monthly" | "twicemonthly";
     lastPayDate: string;
     miscPercent: number;
     monthsToShow: number;
+    firstPayDay?: number;  // Day of month for first paycheck (1-31), used with twicemonthly
+    secondPayDay?: number; // Day of month for second paycheck (1-31), used with twicemonthly
   }
