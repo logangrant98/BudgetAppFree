@@ -438,22 +438,22 @@ export default function PaymentSchedule({
               )}
             </div>
           </div>
-          <div className="grid grid-cols-4 gap-4 mt-4">
-            <div className="text-center p-3 bg-neutral-50 rounded-lg">
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4 mt-4">
+            <div className="text-center p-2 sm:p-3 bg-neutral-50 rounded-lg">
               <p className="text-xs font-semibold text-neutral-500 uppercase tracking-wide">Target Rate</p>
-              <p className="text-lg font-bold text-neutral-900">{savings.percent}%</p>
+              <p className="text-base sm:text-lg font-bold text-neutral-900">{savings.percent}%</p>
             </div>
-            <div className="text-center p-3 bg-green-50 rounded-lg">
+            <div className="text-center p-2 sm:p-3 bg-green-50 rounded-lg">
               <p className="text-xs font-semibold text-green-600 uppercase tracking-wide">Deposited</p>
-              <p className="text-lg font-bold text-green-700">{formatCurrency(savingsProgress.totalDeposited)}</p>
+              <p className="text-base sm:text-lg font-bold text-green-700">{formatCurrency(savingsProgress.totalDeposited)}</p>
             </div>
-            <div className="text-center p-3 bg-blue-50 rounded-lg">
+            <div className="text-center p-2 sm:p-3 bg-blue-50 rounded-lg">
               <p className="text-xs font-semibold text-blue-600 uppercase tracking-wide">Bonus</p>
-              <p className="text-lg font-bold text-blue-700">{formatCurrency(oneTimeSavingsTotal)}</p>
+              <p className="text-base sm:text-lg font-bold text-blue-700">{formatCurrency(oneTimeSavingsTotal)}</p>
             </div>
-            <div className="text-center p-3 bg-neutral-50 rounded-lg">
+            <div className="text-center p-2 sm:p-3 bg-neutral-50 rounded-lg">
               <p className="text-xs font-semibold text-neutral-500 uppercase tracking-wide">Remaining</p>
-              <p className="text-lg font-bold text-neutral-900">{formatCurrency(Math.max(0, savingsProgress.totalTarget - savingsProgress.totalDeposited))}</p>
+              <p className="text-base sm:text-lg font-bold text-neutral-900">{formatCurrency(Math.max(0, savingsProgress.totalTarget - savingsProgress.totalDeposited))}</p>
             </div>
           </div>
         </div>
@@ -634,29 +634,29 @@ export default function PaymentSchedule({
 
             {/* Stats Grid */}
             <div className="grid grid-cols-3 border-b border-neutral-200">
-              <div className="p-4 border-r border-neutral-200">
+              <div className="p-2 sm:p-4 border-r border-neutral-200">
                 <p className="text-xs font-semibold text-neutral-500 uppercase tracking-wide mb-1">
                   Paycheck
-                  <span className="normal-case font-normal ml-1">(after {formatPercent(savings.percent)} savings)</span>
+                  <span className="hidden sm:inline normal-case font-normal ml-1">(after {formatPercent(savings.percent)} savings)</span>
                 </p>
-                <p className="text-lg font-bold text-neutral-900">
+                <p className="text-sm sm:text-lg font-bold text-neutral-900">
                   {formatCurrency(alloc.paycheckAmount)}
                 </p>
               </div>
-              <div className="p-4 border-r border-neutral-200">
+              <div className="p-2 sm:p-4 border-r border-neutral-200">
                 <p className="text-xs font-semibold text-neutral-500 uppercase tracking-wide mb-1">Used</p>
-                <p className="text-lg font-bold text-neutral-900">
+                <p className="text-sm sm:text-lg font-bold text-neutral-900">
                   {formatCurrency(totalUsedFunds)}
                 </p>
                 {oneTimeBillsAmount > 0 && (
-                  <p className="text-xs text-blue-600">
+                  <p className="text-xs text-blue-600 hidden sm:block">
                     incl. {formatCurrency(oneTimeBillsAmount)} one-time
                   </p>
                 )}
               </div>
-              <div className="p-4">
+              <div className="p-2 sm:p-4">
                 <p className="text-xs font-semibold text-neutral-500 uppercase tracking-wide mb-1">Remaining</p>
-                <p className={`text-lg font-bold ${miscReserved >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                <p className={`text-sm sm:text-lg font-bold ${miscReserved >= 0 ? 'text-green-600' : 'text-red-600'}`}>
                   {formatCurrency(miscReserved)}
                 </p>
               </div>
