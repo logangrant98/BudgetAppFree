@@ -19,6 +19,7 @@ model User {
   updatedAt       DateTime          @updatedAt
   oneTimeBills    OneTimeBill[]
   paycheckSavings PaycheckSavings[]
+  billPayments    BillPayment[]
 }
 
 model OneTimeBill {
@@ -49,4 +50,21 @@ model PaycheckSavings {
 
   @@unique([userId, paycheckDate])
   @@index([userId])
+}
+
+model BillPayment {
+  id           String   @id @default(cuid())
+  userId       String
+  paycheckDate String   // The paycheck date this payment is for (YYYY-MM-DD)
+  billName     String   // Name of the bill
+  billDueDate  String   // Due date of the bill instance (YYYY-MM-DD)
+  isPaid       Boolean  @default(true)
+  paidAt       DateTime @default(now())
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, paycheckDate, billName, billDueDate])
+  @@index([userId])
+  @@index([paycheckDate])
 }
