@@ -59,6 +59,7 @@ interface PaymentScheduleProps {
   oneTimeSavingsTotal: number;
   billPaycheckAmounts: BillPaycheckAmount[];
   onUpdateBillPaycheckAmount: (billName: string, billDueDate: string, paycheckDate: string, amount: number) => Promise<void>;
+  onBillMoved?: (billInstanceId: string, paycheckDate: string) => void;
 }
 
 const formatCurrency = (value: number): string =>
@@ -96,7 +97,8 @@ export default function PaymentSchedule({
   onAddOneTimeSavings,
   oneTimeSavingsTotal,
   billPaycheckAmounts,
-  onUpdateBillPaycheckAmount
+  onUpdateBillPaycheckAmount,
+  onBillMoved
 }: PaymentScheduleProps) {
 
   const [showSuggestions, setShowSuggestions] = useState(true);
@@ -373,6 +375,12 @@ export default function PaymentSchedule({
 
           recalculateUnderfunded(currentAlloc);
           recalculateUnderfunded(targetAlloc);
+
+          // Save the bill assignment to persist the move
+          if (onBillMoved && movedBill.instanceId) {
+            const targetPaycheckDate = targetAlloc.payDate.toISOString().split('T')[0];
+            onBillMoved(movedBill.instanceId, targetPaycheckDate);
+          }
         }
       }
     }
