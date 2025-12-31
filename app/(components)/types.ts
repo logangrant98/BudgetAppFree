@@ -25,3 +25,33 @@ export interface Bill {
     miscPercent: number;   // Savings percentage (shared across all sources)
     monthsToShow: number;  // Projection months (shared across all sources)
   }
+
+  export interface OneTimeBill {
+    id: string;
+    userId: string;
+    name: string;
+    amount: number;
+    paycheckDate: string;  // The paycheck date this bill is assigned to (YYYY-MM-DD)
+    dueDate?: string | null;  // Optional due date for the bill
+    isPaid: boolean;
+    createdAt: string;
+    updatedAt: string;
+  }
+
+  export interface AllocatedBill extends Bill {
+    isLate?: boolean;
+    isCriticallyLate?: boolean;  // Past allowable late days (in grace period)
+    isUnderfunded?: boolean;     // Not enough funds in paycheck to cover this bill
+    daysLate?: number;           // Number of days late
+    instanceId?: string;
+  }
+
+  export interface PaycheckSavings {
+    id: string;
+    userId: string;
+    paycheckDate: string;  // The paycheck date (YYYY-MM-DD)
+    amount: number;        // Custom savings amount for this specific paycheck
+    isDeposited: boolean;  // Whether savings have been deposited
+    createdAt: string;
+    updatedAt: string;
+  }
