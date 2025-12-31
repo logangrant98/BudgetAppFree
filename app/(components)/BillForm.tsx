@@ -3,7 +3,6 @@ import React, { useState } from "react";
 import { Bill } from "./types";
 import { v4 as uuidv4 } from "uuid";
 import { Calendar, DollarSign, Clock, Percent } from "lucide-react";
-import '../../styles/globals.css'
 
 interface BillFormProps {
   setBillsAction: React.Dispatch<React.SetStateAction<Bill[]>>;
