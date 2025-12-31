@@ -1,6 +1,6 @@
 "use client";
 import React, { useState } from "react";
-import { Bill, OneTimeBill, AllocatedBill } from "./types";
+import { Bill, OneTimeBill, AllocatedBill, PaycheckSavings } from "./types";
 import AddOneTimeBillModal from "./AddOneTimeBillModal";
 import '../../styles/globals.css';
 
@@ -15,7 +15,12 @@ import {
   CheckCircle,
   Plus,
   Trash2,
-  AlertOctagon
+  AlertOctagon,
+  PiggyBank,
+  Edit3,
+  Check,
+  X,
+  TrendingUp
 } from "lucide-react";
 
 interface SuggestedChange {
@@ -42,6 +47,10 @@ interface PaymentScheduleProps {
   onAddOneTimeBill: (paycheckDate: string, bill: { name: string; amount: number; dueDate?: string }) => Promise<void>;
   onToggleOneTimeBillPaid: (billId: string, isPaid: boolean) => Promise<void>;
   onDeleteOneTimeBill: (billId: string) => Promise<void>;
+  paycheckSavings: PaycheckSavings[];
+  onUpdatePaycheckSavings: (paycheckDate: string, amount: number) => Promise<void>;
+  onToggleSavingsDeposited: (savingsId: string, isDeposited: boolean) => Promise<void>;
+  getDefaultSavingsForPaycheck: (paycheckAmount: number) => number;
 }
 
 const formatCurrency = (value: number): string =>
@@ -69,12 +78,18 @@ export default function PaymentSchedule({
   oneTimeBills,
   onAddOneTimeBill,
   onToggleOneTimeBillPaid,
-  onDeleteOneTimeBill
+  onDeleteOneTimeBill,
+  paycheckSavings,
+  onUpdatePaycheckSavings,
+  onToggleSavingsDeposited,
+  getDefaultSavingsForPaycheck
 }: PaymentScheduleProps) {
 
   const [showSuggestions, setShowSuggestions] = useState(true);
   const [modalOpen, setModalOpen] = useState(false);
   const [selectedPaycheckDate, setSelectedPaycheckDate] = useState<string>("");
+  const [editingSavingsDate, setEditingSavingsDate] = useState<string | null>(null);
+  const [editingSavingsAmount, setEditingSavingsAmount] = useState<string>("");
 
   const handleOpenAddModal = (payDate: Date) => {
     // Format date as YYYY-MM-DD for the modal
@@ -91,6 +106,65 @@ export default function PaymentSchedule({
   const getOneTimeBillsForPaycheck = (payDate: Date): OneTimeBill[] => {
     const dateStr = payDate.toISOString().split('T')[0];
     return oneTimeBills.filter(bill => bill.paycheckDate === dateStr);
+  };
+
+  // Get savings for a specific paycheck date
+  const getSavingsForPaycheck = (payDate: Date, paycheckAmount: number): { amount: number; isCustom: boolean; isDeposited: boolean; id?: string } => {
+    const dateStr = payDate.toISOString().split('T')[0];
+    const customSavings = paycheckSavings.find(s => s.paycheckDate === dateStr);
+    if (customSavings) {
+      return {
+        amount: customSavings.amount,
+        isCustom: true,
+        isDeposited: customSavings.isDeposited,
+        id: customSavings.id
+      };
+    }
+    return {
+      amount: getDefaultSavingsForPaycheck(paycheckAmount),
+      isCustom: false,
+      isDeposited: false
+    };
+  };
+
+  // Handle starting edit mode for savings
+  const handleStartEditSavings = (payDate: Date, currentAmount: number) => {
+    const dateStr = payDate.toISOString().split('T')[0];
+    setEditingSavingsDate(dateStr);
+    setEditingSavingsAmount(currentAmount.toString());
+  };
+
+  // Handle saving edited savings amount
+  const handleSaveSavings = async (payDate: Date) => {
+    const dateStr = payDate.toISOString().split('T')[0];
+    const amount = parseFloat(editingSavingsAmount);
+    if (!isNaN(amount) && amount >= 0) {
+      await onUpdatePaycheckSavings(dateStr, amount);
+    }
+    setEditingSavingsDate(null);
+    setEditingSavingsAmount("");
+  };
+
+  // Handle canceling edit
+  const handleCancelEditSavings = () => {
+    setEditingSavingsDate(null);
+    setEditingSavingsAmount("");
+  };
+
+  // Calculate total savings progress
+  const calculateSavingsProgress = () => {
+    let totalTarget = 0;
+    let totalDeposited = 0;
+
+    schedule.forEach(alloc => {
+      const savingsInfo = getSavingsForPaycheck(alloc.payDate, alloc.paycheckAmount / (1 - savings.percent / 100));
+      totalTarget += savingsInfo.amount;
+      if (savingsInfo.isDeposited) {
+        totalDeposited += savingsInfo.amount;
+      }
+    });
+
+    return { totalTarget, totalDeposited, percentage: totalTarget > 0 ? (totalDeposited / totalTarget) * 100 : 0 };
   };
 
   const moveBill = (
@@ -155,9 +229,67 @@ export default function PaymentSchedule({
     return "bg-red-500";
   };
 
+  const savingsProgress = calculateSavingsProgress();
+
   return (
     <div className="space-y-6">
+      {/* Savings Progress Card */}
+      <div className="bg-white rounded-lg border border-neutral-200 shadow-card overflow-hidden">
+        <div className="bg-green-700 px-5 py-4 border-b-2 border-green-500">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="bg-green-500 p-1.5 rounded">
+                <PiggyBank className="w-5 h-5 text-green-900" />
+              </div>
+              <div>
+                <h2 className="text-base font-bold text-white uppercase tracking-wide">Savings Progress</h2>
+                <p className="text-green-200 text-xs mt-0.5">Track your savings goals across all paychecks</p>
+              </div>
+            </div>
+            <div className="text-right">
+              <p className="text-2xl font-bold text-white">{formatCurrency(savingsProgress.totalDeposited)}</p>
+              <p className="text-green-200 text-xs">of {formatCurrency(savingsProgress.totalTarget)} target</p>
+            </div>
+          </div>
+        </div>
+        <div className="p-5">
+          <div className="flex items-center justify-between mb-3">
+            <span className="text-sm font-semibold text-neutral-700">Overall Progress</span>
+            <span className="text-sm font-bold text-green-700">{savingsProgress.percentage.toFixed(0)}% deposited</span>
+          </div>
+          <div className="w-full bg-neutral-200 rounded-full h-4">
+            <div
+              className="h-4 rounded-full bg-green-500 transition-all duration-500 flex items-center justify-end pr-2"
+              style={{ width: `${Math.max(savingsProgress.percentage, savingsProgress.percentage > 0 ? 8 : 0)}%` }}
+            >
+              {savingsProgress.percentage >= 15 && (
+                <TrendingUp className="w-3 h-3 text-white" />
+              )}
+            </div>
+          </div>
+          <div className="grid grid-cols-3 gap-4 mt-4">
+            <div className="text-center p-3 bg-neutral-50 rounded-lg">
+              <p className="text-xs font-semibold text-neutral-500 uppercase tracking-wide">Target Rate</p>
+              <p className="text-lg font-bold text-neutral-900">{savings.percent}%</p>
+            </div>
+            <div className="text-center p-3 bg-green-50 rounded-lg">
+              <p className="text-xs font-semibold text-green-600 uppercase tracking-wide">Deposited</p>
+              <p className="text-lg font-bold text-green-700">{formatCurrency(savingsProgress.totalDeposited)}</p>
+            </div>
+            <div className="text-center p-3 bg-neutral-50 rounded-lg">
+              <p className="text-xs font-semibold text-neutral-500 uppercase tracking-wide">Remaining</p>
+              <p className="text-lg font-bold text-neutral-900">{formatCurrency(savingsProgress.totalTarget - savingsProgress.totalDeposited)}</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
       {schedule.map((alloc, index) => {
+        const dateStr = alloc.payDate.toISOString().split('T')[0];
+        // Calculate gross paycheck (before savings deduction)
+        const grossPaycheck = alloc.paycheckAmount / (1 - savings.percent / 100);
+        const savingsInfo = getSavingsForPaycheck(alloc.payDate, grossPaycheck);
+        const isEditingSavings = editingSavingsDate === dateStr;
         const miscReserved = alloc.paycheckAmount - alloc.usedFunds;
         const usedPercentage = (alloc.usedFunds / alloc.paycheckAmount) * 100;
         const availablePercentage = 100 - usedPercentage;
@@ -202,6 +334,105 @@ export default function PaymentSchedule({
                   >
                     <Plus className="w-5 h-5" />
                   </button>
+                </div>
+              </div>
+            </div>
+
+            {/* Savings Section - Always at Top */}
+            <div className={`px-5 py-4 border-b-2 ${savingsInfo.isDeposited ? 'bg-green-50 border-green-200' : 'bg-green-50/50 border-green-100'}`}>
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className={`p-2 rounded-full ${savingsInfo.isDeposited ? 'bg-green-500' : 'bg-green-200'}`}>
+                    <PiggyBank className={`w-5 h-5 ${savingsInfo.isDeposited ? 'text-white' : 'text-green-700'}`} />
+                  </div>
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm font-bold text-green-800 uppercase tracking-wide">
+                        Savings Deposit
+                      </span>
+                      {savingsInfo.isCustom && (
+                        <span className="px-2 py-0.5 text-xs font-semibold rounded bg-blue-100 text-blue-700 uppercase">
+                          Custom
+                        </span>
+                      )}
+                    </div>
+                    <p className="text-xs text-green-600 mt-0.5">
+                      Transfer to savings account this paycheck
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-3">
+                  {isEditingSavings ? (
+                    <div className="flex items-center gap-2">
+                      <div className="relative">
+                        <DollarSign className="absolute left-2 top-1/2 -translate-y-1/2 w-4 h-4 text-neutral-400" />
+                        <input
+                          type="number"
+                          value={editingSavingsAmount}
+                          onChange={(e) => setEditingSavingsAmount(e.target.value)}
+                          className="w-28 pl-7 pr-2 py-1.5 border border-neutral-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
+                          step="0.01"
+                          min="0"
+                          autoFocus
+                        />
+                      </div>
+                      <button
+                        onClick={() => handleSaveSavings(alloc.payDate)}
+                        className="p-1.5 bg-green-500 text-white rounded hover:bg-green-600 transition-colors"
+                        title="Save"
+                      >
+                        <Check className="w-4 h-4" />
+                      </button>
+                      <button
+                        onClick={handleCancelEditSavings}
+                        className="p-1.5 bg-neutral-200 text-neutral-600 rounded hover:bg-neutral-300 transition-colors"
+                        title="Cancel"
+                      >
+                        <X className="w-4 h-4" />
+                      </button>
+                    </div>
+                  ) : (
+                    <>
+                      <div className="text-right">
+                        <p className={`text-xl font-bold ${savingsInfo.isDeposited ? 'text-green-600 line-through' : 'text-green-700'}`}>
+                          {formatCurrency(savingsInfo.amount)}
+                        </p>
+                        {savingsInfo.isDeposited && (
+                          <p className="text-xs font-semibold text-green-600 flex items-center justify-end gap-1">
+                            <CheckCircle className="w-3 h-3" />
+                            Deposited
+                          </p>
+                        )}
+                      </div>
+                      <button
+                        onClick={() => handleStartEditSavings(alloc.payDate, savingsInfo.amount)}
+                        className="p-2 bg-white border border-green-200 text-green-700 rounded hover:bg-green-100 transition-colors"
+                        title="Edit savings amount for this paycheck"
+                      >
+                        <Edit3 className="w-4 h-4" />
+                      </button>
+                      {savingsInfo.id ? (
+                        <input
+                          type="checkbox"
+                          checked={savingsInfo.isDeposited}
+                          onChange={(e) => onToggleSavingsDeposited(savingsInfo.id!, e.target.checked)}
+                          className="w-6 h-6 rounded border-green-300 text-green-500 focus:ring-green-500 cursor-pointer"
+                          title="Mark as deposited"
+                        />
+                      ) : (
+                        <button
+                          onClick={async () => {
+                            await onUpdatePaycheckSavings(dateStr, savingsInfo.amount);
+                          }}
+                          className="px-3 py-1.5 bg-green-600 text-white text-xs font-semibold rounded hover:bg-green-700 transition-colors"
+                          title="Save to track this deposit"
+                        >
+                          Track
+                        </button>
+                      )}
+                    </>
+                  )}
                 </div>
               </div>
             </div>

@@ -45,3 +45,13 @@ export interface Bill {
     daysLate?: number;           // Number of days late
     instanceId?: string;
   }
+
+  export interface PaycheckSavings {
+    id: string;
+    userId: string;
+    paycheckDate: string;  // The paycheck date (YYYY-MM-DD)
+    amount: number;        // Custom savings amount for this specific paycheck
+    isDeposited: boolean;  // Whether savings have been deposited
+    createdAt: string;
+    updatedAt: string;
+  }

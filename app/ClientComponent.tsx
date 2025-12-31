@@ -1,6 +1,6 @@
 "use client";
 import React, { useState, useMemo, useEffect, useRef } from "react";
-import { Income, IncomeSource, Bill, OneTimeBill, AllocatedBill } from "./(components)/types";
+import { Income, IncomeSource, Bill, OneTimeBill, AllocatedBill, PaycheckSavings } from "./(components)/types";
 import IncomeForm from "./(components)/IncomeForm";
 import BillForm from "./(components)/BillForm";
 import BillList from "./(components)/BillList/BillList";
@@ -51,10 +51,11 @@ export default function BudgetPlanner() {
   const [bills, setBills] = useState<Bill[]>([]);
   const [schedule, setSchedule] = useState<Allocation[]>([]);
   const [oneTimeBills, setOneTimeBills] = useState<OneTimeBill[]>([]);
+  const [paycheckSavings, setPaycheckSavings] = useState<PaycheckSavings[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { user, logout } = useAuth();
 
-  // Fetch one-time bills on mount when user is logged in
+  // Fetch one-time bills and paycheck savings on mount when user is logged in
   useEffect(() => {
     const fetchOneTimeBills = async () => {
       if (!user) return;
@@ -68,7 +69,22 @@ export default function BudgetPlanner() {
         console.error('Failed to fetch one-time bills:', error);
       }
     };
+
+    const fetchPaycheckSavings = async () => {
+      if (!user) return;
+      try {
+        const response = await fetch('/api/paycheck-savings');
+        if (response.ok) {
+          const data = await response.json();
+          setPaycheckSavings(data);
+        }
+      } catch (error) {
+        console.error('Failed to fetch paycheck savings:', error);
+      }
+    };
+
     fetchOneTimeBills();
+    fetchPaycheckSavings();
   }, [user]);
 
   // Handler to add a new one-time bill
@@ -128,6 +144,56 @@ export default function BudgetPlanner() {
     } catch (error) {
       console.error('Failed to delete one-time bill:', error);
     }
+  };
+
+  // Handler to update paycheck savings (create or update)
+  const handleUpdatePaycheckSavings = async (paycheckDate: string, amount: number) => {
+    try {
+      const response = await fetch('/api/paycheck-savings', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ paycheckDate, amount }),
+      });
+      if (response.ok) {
+        const updatedSavings = await response.json();
+        setPaycheckSavings((prev) => {
+          const existingIndex = prev.findIndex(s => s.paycheckDate === paycheckDate);
+          if (existingIndex >= 0) {
+            const newSavings = [...prev];
+            newSavings[existingIndex] = updatedSavings;
+            return newSavings;
+          }
+          return [...prev, updatedSavings];
+        });
+      }
+    } catch (error) {
+      console.error('Failed to update paycheck savings:', error);
+    }
+  };
+
+  // Handler to toggle savings deposited status
+  const handleToggleSavingsDeposited = async (savingsId: string, isDeposited: boolean) => {
+    try {
+      const response = await fetch(`/api/paycheck-savings/${savingsId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ isDeposited }),
+      });
+      if (response.ok) {
+        setPaycheckSavings((prev) =>
+          prev.map((s) =>
+            s.id === savingsId ? { ...s, isDeposited } : s
+          )
+        );
+      }
+    } catch (error) {
+      console.error('Failed to update savings status:', error);
+    }
+  };
+
+  // Calculate default savings for a paycheck based on percentage
+  const getDefaultSavingsForPaycheck = (grossPaycheckAmount: number): number => {
+    return grossPaycheckAmount * (income.miscPercent / 100);
   };
 
   // Helper function for consistent currency formatting
@@ -607,56 +673,163 @@ export default function BudgetPlanner() {
     );
     const totalSavings = savings.total;
 
-    const averageUsagePercentage =
+    const averageUsagePercentage = schedule.length > 0 ?
       schedule.reduce(
         (sum, alloc) => sum + (alloc.usedFunds / alloc.paycheckAmount) * 100,
         0
-      ) / schedule.length;
+      ) / schedule.length : 0;
 
-    // Professional Dashboard Page
+    // Calculate savings progress for PDF
+    const totalSavingsTarget = schedule.reduce((sum, alloc) => {
+      const grossPaycheck = alloc.paycheckAmount / (1 - income.miscPercent / 100);
+      return sum + (grossPaycheck * (income.miscPercent / 100));
+    }, 0);
+
+    const depositedSavings = paycheckSavings
+      .filter(s => s.isDeposited)
+      .reduce((sum, s) => sum + s.amount, 0);
+
+    const savingsProgressPercent = totalSavingsTarget > 0
+      ? (depositedSavings / totalSavingsTarget) * 100
+      : 0;
+
+    // Professional Dashboard Page with Visual Summary
     doc.setFontSize(24);
-    doc.setTextColor(23, 23, 23); // Near black
+    doc.setTextColor(23, 23, 23);
     doc.text("Budget Planner Report", 15, 15);
 
     // Yellow accent line
     doc.setDrawColor(245, 158, 11);
     doc.setLineWidth(2);
-    doc.line(15, 20, 60, 20);
+    doc.line(15, 20, 75, 20);
 
-    // Income Summary Section
+    // Date generated
+    doc.setFontSize(10);
+    doc.setTextColor(115, 115, 115);
+    doc.text(`Generated: ${new Date().toLocaleDateString()}`, 15, 28);
+
+    // =============== VISUAL DASHBOARD SECTION ===============
+    const dashboardY = 38;
+
+    // Box 1: Income (Green)
+    doc.setFillColor(34, 197, 94); // Green
+    doc.roundedRect(15, dashboardY, 55, 35, 3, 3, 'F');
+    doc.setFontSize(9);
+    doc.setTextColor(255, 255, 255);
+    doc.text("MONTHLY INCOME", 20, dashboardY + 10);
+    doc.setFontSize(16);
+    doc.setFont("helvetica", "bold");
+    doc.text(`$${monthlyIncome.toFixed(0)}`, 20, dashboardY + 22);
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(8);
+    doc.text(`$${yearlyIncome.toFixed(0)}/year`, 20, dashboardY + 30);
+
+    // Box 2: Bills (Red/Orange)
+    doc.setFillColor(239, 68, 68); // Red
+    doc.roundedRect(77, dashboardY, 55, 35, 3, 3, 'F');
+    doc.setFontSize(9);
+    doc.setTextColor(255, 255, 255);
+    doc.text("MONTHLY BILLS", 82, dashboardY + 10);
+    doc.setFontSize(16);
+    doc.setFont("helvetica", "bold");
+    doc.text(`$${totalBillsAmount.toFixed(0)}`, 82, dashboardY + 22);
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(8);
+    doc.text(`${bills.length} bills total`, 82, dashboardY + 30);
+
+    // Box 3: Savings Target (Blue)
+    doc.setFillColor(59, 130, 246); // Blue
+    doc.roundedRect(139, dashboardY, 55, 35, 3, 3, 'F');
+    doc.setFontSize(9);
+    doc.setTextColor(255, 255, 255);
+    doc.text("SAVINGS TARGET", 144, dashboardY + 10);
+    doc.setFontSize(16);
+    doc.setFont("helvetica", "bold");
+    doc.text(`$${totalSavingsTarget.toFixed(0)}`, 144, dashboardY + 22);
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(8);
+    doc.text(`${income.miscPercent}% of income`, 144, dashboardY + 30);
+
+    // =============== PROGRESS BARS SECTION ===============
+    const progressY = dashboardY + 45;
+
+    // Budget Usage Progress Bar
+    doc.setFontSize(10);
+    doc.setTextColor(23, 23, 23);
+    doc.setFont("helvetica", "bold");
+    doc.text("Budget Usage", 15, progressY);
+    doc.setFont("helvetica", "normal");
+    doc.text(`${averageUsagePercentage.toFixed(0)}%`, 180, progressY);
+
+    // Background bar
+    doc.setFillColor(229, 229, 229);
+    doc.roundedRect(15, progressY + 3, 180, 8, 2, 2, 'F');
+
+    // Progress bar (color based on usage)
+    if (averageUsagePercentage <= 70) {
+      doc.setFillColor(34, 197, 94); // Green
+    } else if (averageUsagePercentage <= 90) {
+      doc.setFillColor(245, 158, 11); // Yellow
+    } else {
+      doc.setFillColor(239, 68, 68); // Red
+    }
+    const usageWidth = Math.min(averageUsagePercentage, 100) * 1.8;
+    doc.roundedRect(15, progressY + 3, usageWidth, 8, 2, 2, 'F');
+
+    // Savings Progress Bar
+    doc.setFont("helvetica", "bold");
+    doc.text("Savings Progress", 15, progressY + 20);
+    doc.setFont("helvetica", "normal");
+    doc.text(`${savingsProgressPercent.toFixed(0)}% deposited`, 155, progressY + 20);
+
+    // Background bar
+    doc.setFillColor(229, 229, 229);
+    doc.roundedRect(15, progressY + 23, 180, 8, 2, 2, 'F');
+
+    // Progress bar (green)
+    doc.setFillColor(34, 197, 94);
+    const savingsWidth = Math.min(savingsProgressPercent, 100) * 1.8;
+    if (savingsWidth > 0) {
+      doc.roundedRect(15, progressY + 23, savingsWidth, 8, 2, 2, 'F');
+    }
+
+    // =============== SUMMARY STATS ===============
+    const statsY = progressY + 42;
+
+    doc.setFillColor(250, 250, 250);
+    doc.rect(15, statsY, 180, 25, 'F');
+    doc.setDrawColor(229, 229, 229);
+    doc.rect(15, statsY, 180, 25, 'S');
+
+    // Stats grid
+    doc.setFontSize(8);
+    doc.setTextColor(115, 115, 115);
+    doc.text("AVG. PAYCHECK", 25, statsY + 8);
+    doc.text("BILLS PER CHECK", 75, statsY + 8);
+    doc.text("REMAINING/CHECK", 130, statsY + 8);
+
+    const avgPaycheck = schedule.length > 0
+      ? schedule.reduce((sum, a) => sum + a.paycheckAmount, 0) / schedule.length
+      : 0;
+    const avgBillsPerCheck = schedule.length > 0
+      ? schedule.reduce((sum, a) => sum + a.usedFunds, 0) / schedule.length
+      : 0;
+    const avgRemaining = avgPaycheck - avgBillsPerCheck;
+
+    doc.setFontSize(11);
+    doc.setTextColor(23, 23, 23);
+    doc.setFont("helvetica", "bold");
+    doc.text(`$${avgPaycheck.toFixed(0)}`, 25, statsY + 18);
+    doc.text(`$${avgBillsPerCheck.toFixed(0)}`, 75, statsY + 18);
+    doc.setTextColor(34, 197, 94);
+    doc.text(`$${avgRemaining.toFixed(0)}`, 130, statsY + 18);
+    doc.setFont("helvetica", "normal");
+
+    // =============== BILLS TABLE ===============
+    const tableY = statsY + 35;
     doc.setFontSize(14);
     doc.setTextColor(23, 23, 23);
-    doc.text("Financial Summary", 15, 32);
-
-    const metrics = [
-      { label: "Monthly Income", value: `$${monthlyIncome.toFixed(2)}` },
-      { label: "Yearly Income", value: `$${yearlyIncome.toFixed(2)}` },
-      { label: "Total Bills", value: `$${totalBillsAmount.toFixed(2)}` },
-      { label: "Avg Usage", value: `${averageUsagePercentage.toFixed(1)}%` },
-      { label: "Projected Savings", value: `$${totalSavings.toFixed(2)}` },
-      { label: "Savings Rate", value: `${income.miscPercent}%` },
-    ];
-
-    let metricX = 15;
-    let metricY = 42;
-    metrics.forEach((metric, index) => {
-      if (index % 3 === 0 && index !== 0) {
-        metricX = 15;
-        metricY += 18;
-      }
-      doc.setFontSize(10);
-      doc.setTextColor(115, 115, 115); // Gray
-      doc.text(metric.label, metricX, metricY);
-      doc.setFontSize(12);
-      doc.setTextColor(23, 23, 23);
-      doc.text(metric.value, metricX, metricY + 6);
-      metricX += 60;
-    });
-
-    // Bills Summary Table
-    doc.setFontSize(14);
-    doc.setTextColor(23, 23, 23);
-    doc.text("Bills Overview", 15, metricY + 22);
+    doc.text("Bills Overview", 15, tableY);
 
     const billsSummaryData = bills.map((b) => {
       const isLate = schedule.some((alloc) =>
@@ -683,13 +856,13 @@ export default function BudgetPlanner() {
     });
 
     autoTable(doc, {
-      startY: metricY + 27,
-      head: [["Bill Name", "Amount", "APR", "Due Date", "Type"]],
+      startY: tableY + 5,
+      head: [["Bill Name", "Amount", "APR", "Due Date", "Type", "Status"]],
       body: billsSummaryData,
       theme: "plain",
       styles: {
-        fontSize: 10,
-        cellPadding: 4,
+        fontSize: 9,
+        cellPadding: 3,
         lineColor: [229, 229, 229],
         lineWidth: 0.5,
       },
@@ -702,7 +875,7 @@ export default function BudgetPlanner() {
         fillColor: [250, 250, 250],
       },
       columnStyles: {
-        5: { cellWidth: 25, halign: "center" },
+        5: { cellWidth: 22, halign: "center" },
       },
     });
 
@@ -1032,6 +1205,10 @@ export default function BudgetPlanner() {
               onAddOneTimeBill={handleAddOneTimeBill}
               onToggleOneTimeBillPaid={handleToggleOneTimeBillPaid}
               onDeleteOneTimeBill={handleDeleteOneTimeBill}
+              paycheckSavings={paycheckSavings}
+              onUpdatePaycheckSavings={handleUpdatePaycheckSavings}
+              onToggleSavingsDeposited={handleToggleSavingsDeposited}
+              getDefaultSavingsForPaycheck={getDefaultSavingsForPaycheck}
             />
           </section>
         </div>
