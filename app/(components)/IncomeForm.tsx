@@ -21,21 +21,24 @@ export default function IncomeForm({
     const { name, value } = e.target;
     setIncomeAction(prev => ({
       ...prev,
-      [name]: name === "amount" || name === "miscPercent" || name === "monthsToShow" 
-        ? parseFloat(value) 
+      [name]: name === "amount" || name === "miscPercent" || name === "monthsToShow" || name === "firstPayDay" || name === "secondPayDay"
+        ? parseFloat(value)
         : value
     }));
   };
 
   const calculateMonthlySavings = useMemo(() => {
     let monthlyAmount = income.amount;
-    
+
     switch (income.frequency) {
       case "weekly":
         monthlyAmount = income.amount * 4.345;
         break;
       case "biweekly":
         monthlyAmount = income.amount * 2.1725;
+        break;
+      case "twicemonthly":
+        monthlyAmount = income.amount * 2; // Paid twice per month
         break;
       default:
         monthlyAmount = income.amount;
@@ -87,9 +90,45 @@ export default function IncomeForm({
           >
             <option value="weekly">Weekly</option>
             <option value="biweekly">Bi-Weekly</option>
+            <option value="twicemonthly">Twice Monthly</option>
             <option value="monthly">Monthly</option>
           </select>
         </div>
+
+        {/* Pay Day Selectors for Twice Monthly */}
+        {income.frequency === "twicemonthly" && (
+          <div className="p-3 bg-blue-50 rounded-lg space-y-3">
+            <p className="text-sm text-blue-700 font-medium">Select your pay days each month:</p>
+            <div className="flex gap-4">
+              <div className="flex-1">
+                <label className="block text-sm font-medium text-gray-700 mb-1">First Pay Day</label>
+                <select
+                  name="firstPayDay"
+                  value={income.firstPayDay || 1}
+                  onChange={handleChange}
+                  className="block w-full rounded-md border text-gray-400 border-gray-300 shadow-sm py-2 focus:ring-blue-500 focus:border-blue-500"
+                >
+                  {Array.from({ length: 31 }, (_, i) => i + 1).map(day => (
+                    <option key={day} value={day}>{day}</option>
+                  ))}
+                </select>
+              </div>
+              <div className="flex-1">
+                <label className="block text-sm font-medium text-gray-700 mb-1">Second Pay Day</label>
+                <select
+                  name="secondPayDay"
+                  value={income.secondPayDay || 15}
+                  onChange={handleChange}
+                  className="block w-full rounded-md border text-gray-400 border-gray-300 shadow-sm py-2 focus:ring-blue-500 focus:border-blue-500"
+                >
+                  {Array.from({ length: 31 }, (_, i) => i + 1).map(day => (
+                    <option key={day} value={day}>{day}</option>
+                  ))}
+                </select>
+              </div>
+            </div>
+          </div>
+        )}
 
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">Last Pay Date</label>
