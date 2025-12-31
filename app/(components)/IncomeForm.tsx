@@ -110,7 +110,7 @@ export default function IncomeForm({
       </div>
 
       {/* Form Content */}
-      <div className="p-5 space-y-5">
+      <div className="p-4 sm:p-5 space-y-5 overflow-x-hidden">
         {/* Income Sources */}
         {income.sources.map((source, index) => (
           <div key={source.id} className="border border-neutral-200 rounded-lg overflow-hidden">
@@ -138,7 +138,7 @@ export default function IncomeForm({
             </div>
 
             {/* Source Fields */}
-            <div className="p-4 space-y-4">
+            <div className="p-3 sm:p-4 space-y-4 overflow-x-hidden">
               {/* Income Amount */}
               <div>
                 <label className="block text-xs font-semibold text-neutral-500 uppercase tracking-wide mb-2">
@@ -209,7 +209,7 @@ export default function IncomeForm({
               )}
 
               {/* Last Pay Date */}
-              <div>
+              <div className="overflow-hidden">
                 <label className="block text-xs font-semibold text-neutral-500 uppercase tracking-wide mb-2">
                   <Calendar className="h-3 w-3 text-neutral-400 inline-block mr-1" />
                   Last Pay Date
@@ -218,7 +218,7 @@ export default function IncomeForm({
                   type="date"
                   value={source.lastPayDate}
                   onChange={(e) => handleSourceChange(source.id, 'lastPayDate', e.target.value)}
-                  className="block w-full rounded border border-neutral-300 bg-neutral-50 text-neutral-900 py-2.5 px-3 text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition-colors"
+                  className="block w-full max-w-full rounded border border-neutral-300 bg-neutral-50 text-neutral-900 py-2.5 px-3 text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition-colors box-border"
                 />
               </div>
             </div>
