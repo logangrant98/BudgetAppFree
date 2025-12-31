@@ -25,3 +25,15 @@ export interface Bill {
     miscPercent: number;   // Savings percentage (shared across all sources)
     monthsToShow: number;  // Projection months (shared across all sources)
   }
+
+  export interface OneTimeBill {
+    id: string;
+    userId: string;
+    name: string;
+    amount: number;
+    paycheckDate: string;  // The paycheck date this bill is assigned to (YYYY-MM-DD)
+    dueDate?: string | null;  // Optional due date for the bill
+    isPaid: boolean;
+    createdAt: string;
+    updatedAt: string;
+  }

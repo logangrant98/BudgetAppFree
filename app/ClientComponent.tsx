@@ -1,6 +1,6 @@
 "use client";
 import React, { useState, useMemo, useEffect, useRef } from "react";
-import { Income, IncomeSource, Bill } from "./(components)/types";
+import { Income, IncomeSource, Bill, OneTimeBill } from "./(components)/types";
 import IncomeForm from "./(components)/IncomeForm";
 import BillForm from "./(components)/BillForm";
 import BillList from "./(components)/BillList/BillList";
@@ -54,8 +54,85 @@ export default function BudgetPlanner() {
   const [savings, setSavings] = useState({ monthly: 0, total: 0, percent: 0 });
   const [bills, setBills] = useState<Bill[]>([]);
   const [schedule, setSchedule] = useState<Allocation[]>([]);
+  const [oneTimeBills, setOneTimeBills] = useState<OneTimeBill[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { user, logout } = useAuth();
+
+  // Fetch one-time bills on mount when user is logged in
+  useEffect(() => {
+    const fetchOneTimeBills = async () => {
+      if (!user) return;
+      try {
+        const response = await fetch('/api/one-time-bills');
+        if (response.ok) {
+          const data = await response.json();
+          setOneTimeBills(data);
+        }
+      } catch (error) {
+        console.error('Failed to fetch one-time bills:', error);
+      }
+    };
+    fetchOneTimeBills();
+  }, [user]);
+
+  // Handler to add a new one-time bill
+  const handleAddOneTimeBill = async (
+    paycheckDate: string,
+    bill: { name: string; amount: number; dueDate?: string }
+  ) => {
+    try {
+      const response = await fetch('/api/one-time-bills', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: bill.name,
+          amount: bill.amount,
+          paycheckDate,
+          dueDate: bill.dueDate || null,
+        }),
+      });
+      if (response.ok) {
+        const newBill = await response.json();
+        setOneTimeBills((prev) => [...prev, newBill]);
+      }
+    } catch (error) {
+      console.error('Failed to add one-time bill:', error);
+    }
+  };
+
+  // Handler to toggle paid status
+  const handleToggleOneTimeBillPaid = async (billId: string, isPaid: boolean) => {
+    try {
+      const response = await fetch(`/api/one-time-bills/${billId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ isPaid }),
+      });
+      if (response.ok) {
+        setOneTimeBills((prev) =>
+          prev.map((bill) =>
+            bill.id === billId ? { ...bill, isPaid } : bill
+          )
+        );
+      }
+    } catch (error) {
+      console.error('Failed to update one-time bill:', error);
+    }
+  };
+
+  // Handler to delete a one-time bill
+  const handleDeleteOneTimeBill = async (billId: string) => {
+    try {
+      const response = await fetch(`/api/one-time-bills/${billId}`, {
+        method: 'DELETE',
+      });
+      if (response.ok) {
+        setOneTimeBills((prev) => prev.filter((bill) => bill.id !== billId));
+      }
+    } catch (error) {
+      console.error('Failed to delete one-time bill:', error);
+    }
+  };
 
   // Helper function for consistent currency formatting
   const formatCurrency = (amount: number): string =>
@@ -921,6 +998,10 @@ export default function BudgetPlanner() {
               schedule={schedule}
               setScheduleAction={setSchedule}
               savings={savings}
+              oneTimeBills={oneTimeBills}
+              onAddOneTimeBill={handleAddOneTimeBill}
+              onToggleOneTimeBillPaid={handleToggleOneTimeBillPaid}
+              onDeleteOneTimeBill={handleDeleteOneTimeBill}
             />
           </section>
         </div>

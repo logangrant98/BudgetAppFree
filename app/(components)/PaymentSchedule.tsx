@@ -1,6 +1,7 @@
 "use client";
 import React, { useState } from "react";
-import { Bill } from "./types";
+import { Bill, OneTimeBill } from "./types";
+import AddOneTimeBillModal from "./AddOneTimeBillModal";
 import '../../styles/globals.css';
 
 import {
@@ -11,7 +12,9 @@ import {
   AlertCircle,
   Clock,
   AlertTriangle,
-  CheckCircle
+  CheckCircle,
+  Plus,
+  Trash2
 } from "lucide-react";
 
 interface AllocatedBill extends Bill {
@@ -39,6 +42,10 @@ interface PaymentScheduleProps {
   schedule: Allocation[];
   setScheduleAction: React.Dispatch<React.SetStateAction<Allocation[]>>;
   savings: { monthly: number; total: number; percent: number };
+  oneTimeBills: OneTimeBill[];
+  onAddOneTimeBill: (paycheckDate: string, bill: { name: string; amount: number; dueDate?: string }) => Promise<void>;
+  onToggleOneTimeBillPaid: (billId: string, isPaid: boolean) => Promise<void>;
+  onDeleteOneTimeBill: (billId: string) => Promise<void>;
 }
 
 const formatCurrency = (value: number): string =>
@@ -62,10 +69,33 @@ const formatPercent = (value: number): string =>
 export default function PaymentSchedule({
   schedule,
   setScheduleAction,
-  savings
+  savings,
+  oneTimeBills,
+  onAddOneTimeBill,
+  onToggleOneTimeBillPaid,
+  onDeleteOneTimeBill
 }: PaymentScheduleProps) {
 
   const [showSuggestions, setShowSuggestions] = useState(true);
+  const [modalOpen, setModalOpen] = useState(false);
+  const [selectedPaycheckDate, setSelectedPaycheckDate] = useState<string>("");
+
+  const handleOpenAddModal = (payDate: Date) => {
+    // Format date as YYYY-MM-DD for the modal
+    const dateStr = payDate.toISOString().split('T')[0];
+    setSelectedPaycheckDate(dateStr);
+    setModalOpen(true);
+  };
+
+  const handleAddBill = async (bill: { name: string; amount: number; dueDate?: string }) => {
+    await onAddOneTimeBill(selectedPaycheckDate, bill);
+  };
+
+  // Get one-time bills for a specific paycheck date
+  const getOneTimeBillsForPaycheck = (payDate: Date): OneTimeBill[] => {
+    const dateStr = payDate.toISOString().split('T')[0];
+    return oneTimeBills.filter(bill => bill.paycheckDate === dateStr);
+  };
 
   const moveBill = (
     billName: string,
@@ -164,9 +194,18 @@ export default function PaymentSchedule({
                     </p>
                   </div>
                 </div>
-                <div className="text-right">
-                  <p className="text-xs text-neutral-400 uppercase tracking-wide">Available</p>
-                  <p className="text-lg font-bold text-primary-500">{formatCurrency(miscReserved)}</p>
+                <div className="flex items-center gap-3">
+                  <div className="text-right">
+                    <p className="text-xs text-neutral-400 uppercase tracking-wide">Available</p>
+                    <p className="text-lg font-bold text-primary-500">{formatCurrency(miscReserved)}</p>
+                  </div>
+                  <button
+                    onClick={() => handleOpenAddModal(alloc.payDate)}
+                    className="bg-primary-500 hover:bg-primary-400 text-neutral-900 p-2 rounded transition-colors"
+                    title="Add one-time bill to this paycheck"
+                  >
+                    <Plus className="w-5 h-5" />
+                  </button>
                 </div>
               </div>
             </div>
@@ -322,15 +361,88 @@ export default function PaymentSchedule({
                   </tbody>
                 </table>
               </div>
-            ) : (
-              <div className="p-8 text-center">
-                <div className="w-12 h-12 bg-neutral-100 rounded-full flex items-center justify-center mx-auto mb-3">
-                  <DollarSign className="w-6 h-6 text-neutral-400" />
+            ) : null}
+
+            {/* One-Time Bills Section */}
+            {(() => {
+              const paycheckOneTimeBills = getOneTimeBillsForPaycheck(alloc.payDate);
+              if (paycheckOneTimeBills.length === 0 && alloc.bills.length === 0) {
+                return (
+                  <div className="p-8 text-center">
+                    <div className="w-12 h-12 bg-neutral-100 rounded-full flex items-center justify-center mx-auto mb-3">
+                      <DollarSign className="w-6 h-6 text-neutral-400" />
+                    </div>
+                    <p className="text-neutral-500 font-medium">No bills for this pay period</p>
+                    <p className="text-neutral-400 text-sm mt-1">Click the + button to add a one-time bill</p>
+                  </div>
+                );
+              }
+              if (paycheckOneTimeBills.length === 0) return null;
+
+              return (
+                <div className="border-t border-neutral-200">
+                  <div className="bg-blue-50 px-5 py-3 border-b border-blue-100">
+                    <h4 className="text-xs font-semibold text-blue-800 uppercase tracking-wide flex items-center gap-2">
+                      <DollarSign className="w-3.5 h-3.5" />
+                      One-Time Bills ({paycheckOneTimeBills.length})
+                    </h4>
+                  </div>
+                  <div className="divide-y divide-neutral-100">
+                    {paycheckOneTimeBills.map((bill) => (
+                      <div
+                        key={bill.id}
+                        className={`flex items-center justify-between px-5 py-4 hover:bg-neutral-50 transition-colors ${
+                          bill.isPaid ? 'bg-green-50/50' : ''
+                        }`}
+                      >
+                        <div className="flex items-center gap-3">
+                          <input
+                            type="checkbox"
+                            checked={bill.isPaid}
+                            onChange={(e) => onToggleOneTimeBillPaid(bill.id, e.target.checked)}
+                            className="w-5 h-5 rounded border-neutral-300 text-primary-500 focus:ring-primary-500 cursor-pointer"
+                          />
+                          <div className={bill.isPaid ? 'line-through text-neutral-400' : ''}>
+                            <span className="text-sm font-semibold text-neutral-900">
+                              {bill.name}
+                            </span>
+                            {bill.dueDate && (
+                              <span className="text-xs text-neutral-500 ml-2">
+                                Due: {new Date(bill.dueDate).toLocaleDateString("en-US", {
+                                  month: "short",
+                                  day: "numeric"
+                                })}
+                              </span>
+                            )}
+                          </div>
+                          <span className="px-2 py-0.5 text-xs font-semibold rounded bg-blue-100 text-blue-800 uppercase tracking-wide">
+                            One-Time
+                          </span>
+                          {bill.isPaid && (
+                            <span className="px-2 py-0.5 text-xs font-semibold rounded bg-green-100 text-green-800 uppercase tracking-wide flex items-center gap-1">
+                              <CheckCircle className="w-3 h-3" />
+                              Paid
+                            </span>
+                          )}
+                        </div>
+                        <div className="flex items-center gap-4">
+                          <span className={`text-sm font-semibold ${bill.isPaid ? 'text-neutral-400 line-through' : 'text-neutral-900'}`}>
+                            {formatCurrency(bill.amount)}
+                          </span>
+                          <button
+                            onClick={() => onDeleteOneTimeBill(bill.id)}
+                            className="inline-flex items-center justify-center w-7 h-7 rounded bg-neutral-100 text-neutral-600 hover:bg-red-100 hover:text-red-600 transition-colors"
+                            title="Delete this bill"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
                 </div>
-                <p className="text-neutral-500 font-medium">No bills for this pay period</p>
-                <p className="text-neutral-400 text-sm mt-1">Full paycheck available for savings</p>
-              </div>
-            )}
+              );
+            })()}
 
             {/* Suggestions Section */}
             {showSuggestions && alloc.suggestedChanges.length > 0 && (
@@ -358,6 +470,14 @@ export default function PaymentSchedule({
           </div>
         );
       })}
+
+      {/* Add One-Time Bill Modal */}
+      <AddOneTimeBillModal
+        isOpen={modalOpen}
+        onClose={() => setModalOpen(false)}
+        onAdd={handleAddBill}
+        paycheckDate={selectedPaycheckDate}
+      />
     </div>
   );
 }
