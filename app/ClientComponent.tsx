@@ -779,7 +779,6 @@ export default function BudgetPlanner() {
                   onChange={handleFileChange}
                 />
               </div>
-              );
               <div className="flex items-center">
                 <button
                   onClick={handleDownloadPDF}
