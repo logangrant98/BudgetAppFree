@@ -1,6 +1,6 @@
 "use client";
 import React, { useState, useMemo, useEffect, useRef } from "react";
-import { Income, IncomeSource, Bill, OneTimeBill } from "./(components)/types";
+import { Income, IncomeSource, Bill, OneTimeBill, AllocatedBill } from "./(components)/types";
 import IncomeForm from "./(components)/IncomeForm";
 import BillForm from "./(components)/BillForm";
 import BillList from "./(components)/BillList/BillList";
@@ -23,10 +23,6 @@ import { useAuth } from "./context/AuthContext";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import "../styles/globals.css";
-
-interface AllocatedBill extends Bill {
-  isLate?: boolean;
-}
 
 interface SuggestedChange {
   billName: string;
@@ -420,39 +416,53 @@ export default function BudgetPlanner() {
 
     const payPeriodLength = getPayPeriodLength();
 
+    // Grace period beyond allowable late days (5 extra days)
+    const GRACE_PERIOD = 5;
+
     const findBestAllocationSlot = (
       bill: Bill & { baseId?: string },
-      allocations: Allocation[]
-      //currentDate: Date
-    ): { index: number; score: number } | null => {
-      let bestSlot: { index: number; score: number } | null = null;
+      allocations: Allocation[],
+      requireFunds: boolean = true
+    ): { index: number; score: number; isCriticallyLate: boolean; isUnderfunded: boolean } | null => {
+      let bestSlot: { index: number; score: number; isCriticallyLate: boolean; isUnderfunded: boolean } | null = null;
       const billDueDate = createDate(bill.dueDate);
       const allowableLateDay = bill.allowableLateDay || 0;
+      const maxLateDays = allowableLateDay + GRACE_PERIOD; // Allow up to allowable + 5 days
 
       allocations.forEach((alloc, index) => {
         const daysDiff = getDaysBetween(billDueDate, alloc.payDate);
         const availableFunds = alloc.paycheckAmount - alloc.usedFunds;
-
-        // Only allow allocation if:
-        // 1. Not paying more than one pay period in advance
-        // 2. Within allowable late days if paying late
-        // 3. Has enough funds
-        const isNotTooEarly = daysDiff >= -payPeriodLength;
-        const isNotTooLate = daysDiff <= allowableLateDay;
         const hasEnoughFunds = bill.paymentAmount <= availableFunds;
 
-        if (isNotTooEarly && isNotTooLate && hasEnoughFunds) {
-          const fundsCushion = availableFunds - bill.paymentAmount;
-          const timeScore = allowableLateDay - Math.abs(daysDiff);
+        // Check timing constraints
+        const isNotTooEarly = daysDiff >= -payPeriodLength;
+        const isWithinAllowableLate = daysDiff <= allowableLateDay;
+        const isWithinGracePeriod = daysDiff > allowableLateDay && daysDiff <= maxLateDays;
+        const isNotTooLate = daysDiff <= maxLateDays;
+
+        // Determine if we should consider this slot
+        const meetsTimingRequirements = isNotTooEarly && isNotTooLate;
+        const meetsFundRequirements = !requireFunds || hasEnoughFunds;
+
+        if (meetsTimingRequirements && meetsFundRequirements) {
+          const fundsCushion = hasEnoughFunds ? (availableFunds - bill.paymentAmount) : -1000;
+          const timeScore = maxLateDays - Math.abs(daysDiff);
           const isBeforeDue = alloc.payDate <= billDueDate ? 50 : 0;
+          // Prioritize on-time payments, then allowable late, then grace period
+          const latenessPenalty = isWithinGracePeriod ? -500 : 0;
 
           // Prioritize paying closer to due date
           const proximityScore = 100 - Math.abs(daysDiff);
           const score =
-            fundsCushion + timeScore * 50 + isBeforeDue + proximityScore;
+            fundsCushion + timeScore * 50 + isBeforeDue + proximityScore + latenessPenalty;
 
           if (!bestSlot || score > bestSlot.score) {
-            bestSlot = { index, score };
+            bestSlot = {
+              index,
+              score,
+              isCriticallyLate: isWithinGracePeriod,
+              isUnderfunded: !hasEnoughFunds
+            };
           }
         }
       });
@@ -460,50 +470,70 @@ export default function BudgetPlanner() {
       return bestSlot;
     };
 
-    // Allocate bills
+    // Allocate bills - ALWAYS assign every bill to a paycheck
     sortedBills.forEach((bill) => {
       const billDueDate = createDate(bill.dueDate);
-      const bestSlot = findBestAllocationSlot(bill, allocations);
+
+      // First try: Find slot with available funds
+      let bestSlot = findBestAllocationSlot(bill, allocations, true);
+
+      // Second try: If no funded slot, find any slot (will be marked underfunded)
+      if (!bestSlot) {
+        bestSlot = findBestAllocationSlot(bill, allocations, false);
+      }
+
+      // Last resort: Assign to the closest paycheck after due date
+      if (!bestSlot) {
+        const allowableLateDay = bill.allowableLateDay || 0;
+        const maxLateDays = allowableLateDay + GRACE_PERIOD;
+
+        // Find the closest paycheck that's not too early
+        let closestIndex = -1;
+        let closestDiff = Infinity;
+
+        allocations.forEach((alloc, index) => {
+          const daysDiff = getDaysBetween(billDueDate, alloc.payDate);
+          // Find any paycheck that's after the due date (or close to it)
+          if (daysDiff >= -payPeriodLength) {
+            const absDiff = Math.abs(daysDiff);
+            if (absDiff < closestDiff) {
+              closestDiff = absDiff;
+              closestIndex = index;
+            }
+          }
+        });
+
+        if (closestIndex >= 0) {
+          const daysDiff = getDaysBetween(billDueDate, allocations[closestIndex].payDate);
+          bestSlot = {
+            index: closestIndex,
+            score: 0,
+            isCriticallyLate: daysDiff > allowableLateDay,
+            isUnderfunded: true
+          };
+        }
+      }
 
       if (bestSlot) {
         const alloc = allocations[bestSlot.index];
         const daysDiff = getDaysBetween(billDueDate, alloc.payDate);
         const isLate = daysDiff > 0;
+        const allowableLateDay = bill.allowableLateDay || 0;
+        const availableFunds = alloc.paycheckAmount - alloc.usedFunds;
+        const isUnderfunded = bill.paymentAmount > availableFunds;
 
         alloc.bills.push({
           ...bill,
           isLate,
+          isCriticallyLate: daysDiff > allowableLateDay,
+          isUnderfunded,
+          daysLate: isLate ? daysDiff : 0,
           instanceId: bill.instanceId,
         });
 
-        alloc.usedFunds += bill.paymentAmount;
-      } else {
-        // If no optimal slot found, try to find the closest viable pay period
-        const fallbackSlots = allocations
-          .filter((alloc) => {
-            const daysDiff = getDaysBetween(billDueDate, alloc.payDate);
-            return (
-              alloc.paycheckAmount - alloc.usedFunds >= bill.paymentAmount &&
-              daysDiff >= -payPeriodLength &&
-              daysDiff <= (bill.allowableLateDay || 0)
-            );
-          })
-          .sort((a, b) => {
-            const aDiff = Math.abs(getDaysBetween(billDueDate, a.payDate));
-            const bDiff = Math.abs(getDaysBetween(billDueDate, b.payDate));
-            return aDiff - bDiff;
-          });
-
-        const fallbackSlot = fallbackSlots[0];
-
-        if (fallbackSlot) {
-          fallbackSlot.bills.push({
-            ...bill,
-            isLate: fallbackSlot.payDate > billDueDate,
-            instanceId: bill.instanceId,
-          });
-
-          fallbackSlot.usedFunds += bill.paymentAmount;
+        // Only count towards used funds if there are funds available
+        if (!isUnderfunded) {
+          alloc.usedFunds += bill.paymentAmount;
         }
       }
     });

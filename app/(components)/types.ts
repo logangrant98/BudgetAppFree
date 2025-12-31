@@ -37,3 +37,11 @@ export interface Bill {
     createdAt: string;
     updatedAt: string;
   }
+
+  export interface AllocatedBill extends Bill {
+    isLate?: boolean;
+    isCriticallyLate?: boolean;  // Past allowable late days (in grace period)
+    isUnderfunded?: boolean;     // Not enough funds in paycheck to cover this bill
+    daysLate?: number;           // Number of days late
+    instanceId?: string;
+  }

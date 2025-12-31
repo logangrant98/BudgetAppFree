@@ -1,6 +1,6 @@
 "use client";
 import React, { useState } from "react";
-import { Bill, OneTimeBill } from "./types";
+import { Bill, OneTimeBill, AllocatedBill } from "./types";
 import AddOneTimeBillModal from "./AddOneTimeBillModal";
 import '../../styles/globals.css';
 
@@ -14,13 +14,9 @@ import {
   AlertTriangle,
   CheckCircle,
   Plus,
-  Trash2
+  Trash2,
+  AlertOctagon
 } from "lucide-react";
-
-interface AllocatedBill extends Bill {
-  isLate?: boolean;
-  instanceId?: string;
-}
 
 interface SuggestedChange {
   billName: string;
@@ -283,14 +279,20 @@ export default function PaymentSchedule({
                       const isLate = daysDiff > 0;
                       const uniqueKey = `${bill.name}-${bill.dueDate}-${alloc.payDate.toISOString()}`;
 
+                      const rowClass = bill.isUnderfunded
+                        ? "bg-red-50 hover:bg-red-100"
+                        : bill.isCriticallyLate
+                          ? "bg-orange-50 hover:bg-orange-100"
+                          : "hover:bg-neutral-50";
+
                       return (
                         <tr
                           key={uniqueKey}
-                          className="hover:bg-neutral-50 transition-colors"
+                          className={`${rowClass} transition-colors`}
                         >
                           <td className="px-5 py-4 whitespace-nowrap">
                             <div className="flex items-center gap-2">
-                              <span className="text-sm font-semibold text-neutral-900">
+                              <span className={`text-sm font-semibold ${bill.isUnderfunded ? 'text-red-900' : 'text-neutral-900'}`}>
                                 {bill.name}
                               </span>
                               {bill.billType === "recurring" && (
@@ -319,17 +321,32 @@ export default function PaymentSchedule({
                             </span>
                           </td>
                           <td className="px-5 py-4 whitespace-nowrap text-center">
-                            {isLate ? (
-                              <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded text-xs font-semibold bg-primary-100 text-primary-800">
-                                <Clock className="w-3 h-3" />
-                                {daysDiff}d late
-                              </span>
-                            ) : (
-                              <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded text-xs font-semibold bg-green-100 text-green-800">
-                                <CheckCircle className="w-3 h-3" />
-                                On Time
-                              </span>
-                            )}
+                            <div className="flex flex-col items-center gap-1">
+                              {/* Timing Status */}
+                              {bill.isCriticallyLate ? (
+                                <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded text-xs font-semibold bg-red-100 text-red-800">
+                                  <AlertOctagon className="w-3 h-3" />
+                                  {daysDiff}d late!
+                                </span>
+                              ) : isLate ? (
+                                <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded text-xs font-semibold bg-primary-100 text-primary-800">
+                                  <Clock className="w-3 h-3" />
+                                  {daysDiff}d late
+                                </span>
+                              ) : (
+                                <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded text-xs font-semibold bg-green-100 text-green-800">
+                                  <CheckCircle className="w-3 h-3" />
+                                  On Time
+                                </span>
+                              )}
+                              {/* Underfunded Warning */}
+                              {bill.isUnderfunded && (
+                                <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded text-xs font-semibold bg-red-500 text-white">
+                                  <AlertTriangle className="w-3 h-3" />
+                                  Underfunded
+                                </span>
+                              )}
+                            </div>
                           </td>
                           <td className="px-5 py-4 whitespace-nowrap text-center">
                             <div className="flex items-center justify-center gap-1">
