@@ -1,6 +1,6 @@
 "use client";
 import React, { useState, useMemo, useEffect, useRef } from "react";
-import { Income, Bill } from "./(components)/types";
+import { Income, IncomeSource, Bill } from "./(components)/types";
 import IncomeForm from "./(components)/IncomeForm";
 import BillForm from "./(components)/BillForm";
 import BillList from "./(components)/BillList/BillList";
@@ -40,13 +40,13 @@ interface Allocation {
   suggestedChanges: SuggestedChange[];
   usedFunds: number;
   paycheckAmount: number;
+  sourceName?: string;  // Name of the income source for this paycheck
+  sourceId?: string;    // ID of the income source
 }
 
 export default function BudgetPlanner() {
   const [income, setIncome] = useState<Income>({
-    amount: 0,
-    frequency: "monthly",
-    lastPayDate: "",
+    sources: [],
     miscPercent: 30,
     monthsToShow: 1,
   });
@@ -78,50 +78,69 @@ export default function BudgetPlanner() {
     setSavings(savingsData);
   };
 
-  // Calculate Monthly and Yearly Income
-  const monthlyIncome = useMemo(() => {
-    const { amount, frequency } = income;
-    switch (frequency) {
+  // Helper function to calculate monthly income for a single source
+  const calculateMonthlyForSource = (source: IncomeSource): number => {
+    switch (source.frequency) {
       case "weekly":
-        return amount * 4.345;
+        return source.amount * 4.345;
       case "biweekly":
-        return amount * 2;
+        return source.amount * 2;
       case "twicemonthly":
-        return amount * 2; // Paid twice per month (e.g., 1st and 15th)
+        return source.amount * 2;
       case "monthly":
       default:
-        return amount;
+        return source.amount;
     }
-  }, [income]);
+  };
+
+  // Calculate Monthly and Yearly Income (aggregated from all sources)
+  const monthlyIncome = useMemo(() => {
+    return income.sources.reduce((total, source) => {
+      return total + calculateMonthlyForSource(source);
+    }, 0);
+  }, [income.sources]);
 
   const yearlyIncome = monthlyIncome * 12;
 
-  // Generate Pay Dates
-  const payDates = useMemo(() => {
-    if (!income.lastPayDate) return [];
-    const startDate = new Date(income.lastPayDate);
-    const payDatesArray: Date[] = [];
-    const monthsToShow = income.monthsToShow || 2;
+  // Interface for pay dates with source info
+  interface PayDateWithSource {
+    date: Date;
+    sourceId: string;
+    sourceName: string;
+    amount: number;
+  }
 
-    switch (income.frequency) {
+  // Generate Pay Dates for a single source
+  const generatePayDatesForSource = (source: IncomeSource, monthsToShow: number): PayDateWithSource[] => {
+    if (!source.lastPayDate) return [];
+    const startDate = new Date(source.lastPayDate);
+    const payDatesArray: PayDateWithSource[] = [];
+
+    const createPayDate = (date: Date): PayDateWithSource => ({
+      date,
+      sourceId: source.id,
+      sourceName: source.name,
+      amount: source.amount
+    });
+
+    switch (source.frequency) {
       case "weekly":
         for (let i = 0; i < Math.round(4.345 * monthsToShow); i++) {
           const date = new Date(startDate);
           date.setDate(startDate.getDate() + i * 7);
-          payDatesArray.push(date);
+          payDatesArray.push(createPayDate(date));
         }
         break;
       case "biweekly":
         for (let i = 0; i < 2 * monthsToShow; i++) {
           const date = new Date(startDate);
           date.setDate(startDate.getDate() + i * 14);
-          payDatesArray.push(date);
+          payDatesArray.push(createPayDate(date));
         }
         break;
       case "twicemonthly":
-        // Generate pay dates on specific days each month (e.g., 1st and 15th)
-        const firstPayDay = income.firstPayDay || 1;
-        const secondPayDay = income.secondPayDay || 15;
+        const firstPayDay = source.firstPayDay || 1;
+        const secondPayDay = source.secondPayDay || 15;
         const [earlierDay, laterDay] = firstPayDay < secondPayDay
           ? [firstPayDay, secondPayDay]
           : [secondPayDay, firstPayDay];
@@ -129,51 +148,61 @@ export default function BudgetPlanner() {
         for (let i = 0; i < monthsToShow; i++) {
           const year = startDate.getFullYear();
           const month = startDate.getMonth() + i;
-
-          // Handle year rollover
           const actualYear = year + Math.floor(month / 12);
           const actualMonth = month % 12;
-
-          // Get the last day of this month to handle edge cases (e.g., day 31 in February)
           const lastDayOfMonth = new Date(actualYear, actualMonth + 1, 0).getDate();
 
-          // First pay date of the month (use min to handle months with fewer days)
           const firstDate = new Date(actualYear, actualMonth, Math.min(earlierDay, lastDayOfMonth));
-          // Only add if it's on or after the start date
           if (firstDate >= startDate || i > 0) {
-            payDatesArray.push(firstDate);
+            payDatesArray.push(createPayDate(firstDate));
           }
 
-          // Second pay date of the month
           const secondDate = new Date(actualYear, actualMonth, Math.min(laterDay, lastDayOfMonth));
           if (secondDate >= startDate || i > 0) {
-            payDatesArray.push(secondDate);
+            payDatesArray.push(createPayDate(secondDate));
           }
         }
-        // Sort to ensure chronological order and remove duplicates
-        payDatesArray.sort((a, b) => a.getTime() - b.getTime());
+        payDatesArray.sort((a, b) => a.date.getTime() - b.date.getTime());
         break;
       case "monthly":
         for (let i = 0; i < monthsToShow; i++) {
           const date = new Date(startDate);
           date.setMonth(startDate.getMonth() + i);
-          payDatesArray.push(date);
+          payDatesArray.push(createPayDate(date));
         }
         break;
     }
     return payDatesArray;
-  }, [income]);
+  };
+
+  // Generate Pay Dates from all sources
+  const payDatesWithSources = useMemo(() => {
+    const monthsToShow = income.monthsToShow || 2;
+    const allPayDates: PayDateWithSource[] = [];
+
+    income.sources.forEach(source => {
+      const sourceDates = generatePayDatesForSource(source, monthsToShow);
+      allPayDates.push(...sourceDates);
+    });
+
+    // Sort all pay dates chronologically
+    return allPayDates.sort((a, b) => a.date.getTime() - b.date.getTime());
+  }, [income.sources, income.monthsToShow]);
+
+  // Legacy payDates array for compatibility (just the dates)
+  const payDates = useMemo(() => {
+    return payDatesWithSources.map(p => p.date);
+  }, [payDatesWithSources]);
 
   // Generate the payment schedule based on pay dates and bills
   // Payment Schedule Funtions
 
   useEffect(() => {
-    if (!bills.length || !payDates.length || income.amount <= 0) {
+    if (!bills.length || !payDatesWithSources.length) {
       setSchedule([]);
       return;
     }
 
-    const paycheckAmount = income.amount;
     const miscReserveFactor = income.miscPercent / 100;
 
     // Helper functions moved to the top
@@ -197,17 +226,18 @@ export default function BudgetPlanner() {
       return getDaysBetween(payDates[0], payDates[1]);
     };
 
-    // Calculate extended allocation period
-    const allocationPayDates = [...payDates];
-    if (payDates.length >= 2) {
+    // Calculate extended allocation period using payDatesWithSources
+    const allocationPayDatesWithSources = [...payDatesWithSources];
+    if (payDatesWithSources.length >= 2) {
+      const lastPayDate = payDatesWithSources[payDatesWithSources.length - 1];
       const lastDate = new Date(
         Date.UTC(
-          payDates[payDates.length - 1].getFullYear(),
-          payDates[payDates.length - 1].getMonth(),
-          payDates[payDates.length - 1].getDate()
+          lastPayDate.date.getFullYear(),
+          lastPayDate.date.getMonth(),
+          lastPayDate.date.getDate()
         )
       );
-      const payPeriodDays = getDaysBetween(payDates[0], payDates[1]);
+      const payPeriodDays = getDaysBetween(payDatesWithSources[0].date, payDatesWithSources[1].date);
 
       // Add two extra pay periods for calculation purposes
       for (let i = 0; i < 2; i++) {
@@ -218,19 +248,30 @@ export default function BudgetPlanner() {
             lastDate.getUTCDate() + payPeriodDays
           )
         );
-        allocationPayDates.push(nextDate);
+        // Use the last source for extended dates
+        allocationPayDatesWithSources.push({
+          date: nextDate,
+          sourceId: lastPayDate.sourceId,
+          sourceName: lastPayDate.sourceName,
+          amount: lastPayDate.amount
+        });
         lastDate.setUTCDate(lastDate.getUTCDate() + payPeriodDays);
       }
     }
 
-    // Initialize allocations with all required properties
-    const allocations: Allocation[] = allocationPayDates.map((date) => ({
-      payDate: date,
+    // Initialize allocations with all required properties including source info
+    const allocations: Allocation[] = allocationPayDatesWithSources.map((payDateInfo) => ({
+      payDate: payDateInfo.date,
       bills: [],
-      suggestedChanges: [], // This can be an empty array since we're not using suggestions
+      suggestedChanges: [],
       usedFunds: 0,
-      paycheckAmount: paycheckAmount * (1 - miscReserveFactor),
+      paycheckAmount: payDateInfo.amount * (1 - miscReserveFactor),
+      sourceName: payDateInfo.sourceName,
+      sourceId: payDateInfo.sourceId,
     }));
+
+    // Keep track of allocationPayDates for compatibility
+    const allocationPayDates = allocationPayDatesWithSources.map(p => p.date);
 
     // Expand recurring bills with unique IDs
     const expandedBills: (Bill & { instanceId?: string; baseId?: string })[] =
@@ -391,8 +432,8 @@ export default function BudgetPlanner() {
     });
 
     // Only return the requested number of pay periods
-    setSchedule(allocations.slice(0, payDates.length));
-  }, [bills, payDates, income]);
+    setSchedule(allocations.slice(0, payDatesWithSources.length));
+  }, [bills, payDates, payDatesWithSources, income.miscPercent]);
 
   // Generate suggestions from the schedule
 
@@ -421,7 +462,27 @@ export default function BudgetPlanner() {
       if (event.target?.result) {
         const importedData = JSON.parse(event.target.result as string);
         if (importedData.income && importedData.bills) {
-          setIncome(importedData.income);
+          // Check if this is old format (has amount field instead of sources array)
+          if ('amount' in importedData.income && !importedData.income.sources) {
+            // Convert old format to new format
+            const oldIncome = importedData.income;
+            const convertedIncome: Income = {
+              sources: [{
+                id: `income-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+                name: "Primary Income",
+                amount: oldIncome.amount || 0,
+                frequency: oldIncome.frequency || "monthly",
+                lastPayDate: oldIncome.lastPayDate || "",
+                firstPayDay: oldIncome.firstPayDay,
+                secondPayDay: oldIncome.secondPayDay,
+              }],
+              miscPercent: oldIncome.miscPercent || 30,
+              monthsToShow: oldIncome.monthsToShow || 1,
+            };
+            setIncome(convertedIncome);
+          } else {
+            setIncome(importedData.income);
+          }
           setBills(importedData.bills);
         }
       }

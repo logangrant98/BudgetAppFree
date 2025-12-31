@@ -31,6 +31,8 @@ interface Allocation {
   suggestedChanges: SuggestedChange[];
   usedFunds: number;
   paycheckAmount: number;
+  sourceName?: string;  // Name of the income source for this paycheck
+  sourceId?: string;    // ID of the income source
 }
 
 interface PaymentScheduleProps {
@@ -153,7 +155,13 @@ export default function PaymentSchedule({
                         year: "numeric",
                       })}
                     </h3>
-                    <p className="text-neutral-400 text-xs mt-0.5">Pay Period {index + 1}</p>
+                    <p className="text-neutral-400 text-xs mt-0.5">
+                      {alloc.sourceName ? (
+                        <span className="text-primary-400">{alloc.sourceName}</span>
+                      ) : (
+                        `Pay Period ${index + 1}`
+                      )}
+                    </p>
                   </div>
                 </div>
                 <div className="text-right">

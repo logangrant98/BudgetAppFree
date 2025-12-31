@@ -10,12 +10,18 @@ export interface Bill {
     instanceId?: string;  // Add this line
   }
   
-  export interface Income {
+  export interface IncomeSource {
+    id: string;
+    name: string; // e.g., "Primary Job", "Spouse Income", "Side Gig"
     amount: number;
     frequency: "weekly" | "biweekly" | "monthly" | "twicemonthly";
     lastPayDate: string;
-    miscPercent: number;
-    monthsToShow: number;
     firstPayDay?: number;  // Day of month for first paycheck (1-31), used with twicemonthly
     secondPayDay?: number; // Day of month for second paycheck (1-31), used with twicemonthly
+  }
+
+  export interface Income {
+    sources: IncomeSource[];
+    miscPercent: number;   // Savings percentage (shared across all sources)
+    monthsToShow: number;  // Projection months (shared across all sources)
   }
