@@ -2,7 +2,7 @@
 import React, { useState } from "react";
 import { Bill } from "../../(components)/types";
 import BillsTable from "./BillsTable";
-import { Clock } from "lucide-react";
+import { Clock, X } from "lucide-react";
 import '../../../styles/globals.css';
 
 interface BillListProps {
@@ -54,62 +54,90 @@ export default function BillList({ bills, setBillsAction, collapsible }: BillLis
         onDeleteAction={handleDeleteBillAction}
         collapsible={collapsible}
       />
+
+      {/* Edit Modal */}
       {editingBill && (
-        <div className="fixed inset-0 bg-gray-600 bg-opacity-50 flex items-center justify-center">
-          <div className="bg-white rounded-lg shadow-xl p-6 max-w-md w-full mx-4">
-            <h3 className="text-lg font-semibold mb-4">Edit Bill: {editingBill.name}</h3>
-            <div className="space-y-4">
+        <div className="fixed inset-0 bg-black/70 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-lg shadow-elevated max-w-md w-full overflow-hidden">
+            {/* Modal Header */}
+            <div className="bg-neutral-900 px-5 py-4 border-b-2 border-primary-500 flex items-center justify-between">
+              <h3 className="text-base font-bold text-white uppercase tracking-wide">
+                Edit Bill
+              </h3>
+              <button
+                onClick={handleCancelEdit}
+                className="text-neutral-400 hover:text-white transition-colors"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Modal Body */}
+            <div className="p-5 space-y-5">
+              {/* Bill Name (Disabled) */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Bill Name</label>
+                <label className="block text-xs font-semibold text-neutral-500 uppercase tracking-wide mb-2">
+                  Bill Name
+                </label>
                 <input
                   type="text"
                   name="name"
                   value={editingBill.name}
                   onChange={handleEditChange}
-                  className="w-full rounded-md border border-gray-300 shadow-sm px-3 py-2"
+                  className="block w-full rounded border border-neutral-200 bg-neutral-100 text-neutral-500 py-2.5 px-3 text-sm cursor-not-allowed"
                   disabled
                 />
               </div>
 
+              {/* Payment Amount */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Payment Amount</label>
+                <label className="block text-xs font-semibold text-neutral-500 uppercase tracking-wide mb-2">
+                  Payment Amount
+                </label>
                 <input
                   type="number"
                   name="paymentAmount"
                   value={editingBill.paymentAmount}
                   onChange={handleEditChange}
-                  className="w-full rounded-md border border-gray-300 shadow-sm px-3 py-2"
+                  className="block w-full rounded border border-neutral-300 bg-neutral-50 text-neutral-900 py-2.5 px-3 text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition-colors"
                 />
               </div>
 
+              {/* APR */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">APR (%)</label>
+                <label className="block text-xs font-semibold text-neutral-500 uppercase tracking-wide mb-2">
+                  APR (%)
+                </label>
                 <input
                   type="number"
                   name="apr"
                   value={editingBill.apr}
                   onChange={handleEditChange}
-                  className="w-full rounded-md border border-gray-300 shadow-sm px-3 py-2"
+                  className="block w-full rounded border border-neutral-300 bg-neutral-50 text-neutral-900 py-2.5 px-3 text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition-colors"
                 />
               </div>
 
+              {/* Due Date */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Due Date</label>
+                <label className="block text-xs font-semibold text-neutral-500 uppercase tracking-wide mb-2">
+                  Due Date
+                </label>
                 <input
                   type="date"
                   name="dueDate"
                   value={editingBill.dueDate}
                   onChange={handleEditChange}
-                  className="w-full rounded-md border border-gray-300 shadow-sm px-3 py-2"
+                  className="block w-full rounded border border-neutral-300 bg-neutral-50 text-neutral-900 py-2.5 px-3 text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition-colors"
                 />
               </div>
 
+              {/* Allowable Late Days */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  <div className="flex items-center space-x-1">
-                    <Clock className="w-4 h-4 text-gray-400" />
-                    <span>Allowable Late Days</span>
-                  </div>
+                <label className="block text-xs font-semibold text-neutral-500 uppercase tracking-wide mb-2">
+                  <span className="flex items-center gap-1">
+                    <Clock className="w-3.5 h-3.5" />
+                    Allowable Late Days
+                  </span>
                 </label>
                 <input
                   type="number"
@@ -118,38 +146,42 @@ export default function BillList({ bills, setBillsAction, collapsible }: BillLis
                   onChange={handleEditChange}
                   min="0"
                   max="30"
-                  className="w-full rounded-md border border-gray-300 shadow-sm px-3 py-2"
+                  className="block w-full rounded border border-neutral-300 bg-neutral-50 text-neutral-900 py-2.5 px-3 text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition-colors"
                 />
               </div>
 
+              {/* Bill Type */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Bill Type</label>
+                <label className="block text-xs font-semibold text-neutral-500 uppercase tracking-wide mb-2">
+                  Bill Type
+                </label>
                 <select
                   name="billType"
                   value={editingBill.billType}
                   onChange={handleEditChange}
-                  className="w-full rounded-md border border-gray-300 shadow-sm px-3 py-2"
+                  className="block w-full rounded border border-neutral-300 bg-neutral-50 text-neutral-900 py-2.5 px-3 text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition-colors"
                 >
                   <option value="recurring">Recurring (Monthly)</option>
                   <option value="one-time">One-Time</option>
                   <option value="other">Other</option>
                 </select>
               </div>
+            </div>
 
-              <div className="flex justify-end space-x-3 mt-6">
-                <button
-                  onClick={handleCancelEdit}
-                  className="px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50"
-                >
-                  Cancel
-                </button>
-                <button
-                  onClick={handleSaveEdit}
-                  className="px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600"
-                >
-                  Save Changes
-                </button>
-              </div>
+            {/* Modal Footer */}
+            <div className="px-5 py-4 bg-neutral-50 border-t border-neutral-200 flex justify-end gap-3">
+              <button
+                onClick={handleCancelEdit}
+                className="px-4 py-2 rounded border border-neutral-300 text-neutral-700 font-medium hover:bg-neutral-100 transition-colors text-sm"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleSaveEdit}
+                className="px-4 py-2 rounded bg-primary-500 text-neutral-900 font-semibold hover:bg-primary-400 transition-colors text-sm"
+              >
+                Save Changes
+              </button>
             </div>
           </div>
         </div>
