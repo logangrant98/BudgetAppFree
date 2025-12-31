@@ -1180,6 +1180,7 @@ export default function BudgetPlanner() {
   };
 
   const [showInstructions, setShowInstructions] = useState(false);
+  const [mobileTab, setMobileTab] = useState<'schedule' | 'budget'>('schedule');
 
   return (
     <div className="min-h-screen bg-neutral-100">
@@ -1248,24 +1249,24 @@ export default function BudgetPlanner() {
                 </div>
 
                 {/* Additional Metrics */}
-                <div className="grid grid-cols-3 gap-4">
+                <div className="grid grid-cols-3 gap-2 sm:gap-4">
                   <div className="text-center">
                     <div className="text-neutral-500 text-xs font-medium uppercase tracking-wide mb-1">Monthly</div>
-                    <div className="text-white font-semibold text-sm">
+                    <div className="text-white font-semibold text-xs sm:text-sm">
                       {formatCurrency(savings.monthly)}
                     </div>
                   </div>
 
-                  <div className="text-center border-x border-neutral-700">
+                  <div className="text-center border-x border-neutral-700 px-1 sm:px-0">
                     <div className="text-neutral-500 text-xs font-medium uppercase tracking-wide mb-1">Rate</div>
-                    <div className="text-white font-semibold text-sm">
+                    <div className="text-white font-semibold text-xs sm:text-sm">
                       {savings?.percent || 0}%
                     </div>
                   </div>
 
                   <div className="text-center">
                     <div className="text-neutral-500 text-xs font-medium uppercase tracking-wide mb-1">Periods</div>
-                    <div className="text-white font-semibold text-sm">
+                    <div className="text-white font-semibold text-xs sm:text-sm">
                       {schedule?.length || 0}
                     </div>
                   </div>
@@ -1391,11 +1392,41 @@ export default function BudgetPlanner() {
         </div>
       </div>
 
+      {/* Mobile Tab Navigation */}
+      <div className="lg:hidden bg-white border-b border-neutral-200 sticky top-0 z-40">
+        <div className="max-w-7xl mx-auto px-4">
+          <div className="flex">
+            <button
+              onClick={() => setMobileTab('schedule')}
+              className={`flex-1 py-3 px-4 text-sm font-semibold uppercase tracking-wide border-b-2 transition-colors ${
+                mobileTab === 'schedule'
+                  ? 'border-primary-500 text-primary-600 bg-primary-50/50'
+                  : 'border-transparent text-neutral-500 hover:text-neutral-700'
+              }`}
+            >
+              <Calendar className="w-4 h-4 inline-block mr-2" />
+              Schedule
+            </button>
+            <button
+              onClick={() => setMobileTab('budget')}
+              className={`flex-1 py-3 px-4 text-sm font-semibold uppercase tracking-wide border-b-2 transition-colors ${
+                mobileTab === 'budget'
+                  ? 'border-primary-500 text-primary-600 bg-primary-50/50'
+                  : 'border-transparent text-neutral-500 hover:text-neutral-700'
+              }`}
+            >
+              <DollarSign className="w-4 h-4 inline-block mr-2" />
+              Income & Bills
+            </button>
+          </div>
+        </div>
+      </div>
+
       {/* Main Content */}
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <div className="flex flex-col lg:flex-row gap-8">
-          {/* Sidebar */}
-          <aside className="lg:w-1/3 xl:w-1/4 space-y-6">
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-8">
+        <div className="flex flex-col lg:flex-row gap-6 lg:gap-8">
+          {/* Sidebar - Hidden on mobile when viewing schedule */}
+          <aside className={`lg:w-1/3 xl:w-1/4 space-y-6 ${mobileTab === 'schedule' ? 'hidden lg:block' : ''}`}>
             <IncomeForm
               income={income}
               setIncomeAction={setIncome}
@@ -1409,8 +1440,8 @@ export default function BudgetPlanner() {
             />
           </aside>
 
-          {/* Main Content Area */}
-          <section className="lg:flex-1 space-y-6">
+          {/* Main Content Area - Hidden on mobile when viewing budget */}
+          <section className={`lg:flex-1 space-y-6 ${mobileTab === 'budget' ? 'hidden lg:block' : ''}`}>
             <BillList bills={bills} setBillsAction={setBills} />
             <PaymentSchedule
               schedule={schedule}
