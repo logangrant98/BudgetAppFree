@@ -12,7 +12,10 @@ import {
   Wallet,
   TrendingUp,
   HelpCircle,
-  X
+  X,
+  DollarSign,
+  Calendar,
+  PiggyBank
 } from "lucide-react";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
@@ -438,15 +441,20 @@ export default function BudgetPlanner() {
         0
       ) / schedule.length;
 
-    // Modern Dashboard Page
+    // Professional Dashboard Page
     doc.setFontSize(24);
-    doc.setTextColor(41, 128, 185); // Bright blue header
-    doc.text("Budget Planner Dashboard", 15, 15);
+    doc.setTextColor(23, 23, 23); // Near black
+    doc.text("Budget Planner Report", 15, 15);
+
+    // Yellow accent line
+    doc.setDrawColor(245, 158, 11);
+    doc.setLineWidth(2);
+    doc.line(15, 20, 60, 20);
 
     // Income Summary Section
-    doc.setFontSize(16);
-    doc.setTextColor(52, 152, 219);
-    doc.text("Income Summary", 15, 25);
+    doc.setFontSize(14);
+    doc.setTextColor(23, 23, 23);
+    doc.text("Financial Summary", 15, 32);
 
     const metrics = [
       { label: "Monthly Income", value: `$${monthlyIncome.toFixed(2)}` },
@@ -458,24 +466,25 @@ export default function BudgetPlanner() {
     ];
 
     let metricX = 15;
-    let metricY = 35;
+    let metricY = 42;
     metrics.forEach((metric, index) => {
       if (index % 3 === 0 && index !== 0) {
         metricX = 15;
-        metricY += 15;
+        metricY += 18;
       }
-      doc.setFontSize(12);
-      doc.setTextColor(33, 33, 33); // Text color
+      doc.setFontSize(10);
+      doc.setTextColor(115, 115, 115); // Gray
       doc.text(metric.label, metricX, metricY);
-      doc.setTextColor(41, 128, 185); // Bright blue for values
+      doc.setFontSize(12);
+      doc.setTextColor(23, 23, 23);
       doc.text(metric.value, metricX, metricY + 6);
       metricX += 60;
     });
 
     // Bills Summary Table
-    doc.setFontSize(16);
-    doc.setTextColor(52, 152, 219);
-    doc.text("Bills Overview", 15, metricY + 15);
+    doc.setFontSize(14);
+    doc.setTextColor(23, 23, 23);
+    doc.text("Bills Overview", 15, metricY + 22);
 
     const billsSummaryData = bills.map((b) => {
       const isLate = schedule.some((alloc) =>
@@ -491,7 +500,7 @@ export default function BudgetPlanner() {
         {
           content: isLate ? "Late" : "On Time",
           styles: {
-            textColor: (isLate ? [255, 69, 58] : [34, 197, 94]) as [
+            textColor: (isLate ? [180, 83, 9] : [22, 163, 74]) as [
               number,
               number,
               number
@@ -502,84 +511,49 @@ export default function BudgetPlanner() {
     });
 
     autoTable(doc, {
-      startY: metricY + 20,
+      startY: metricY + 27,
       head: [["Bill Name", "Amount", "APR", "Due Date", "Type"]],
       body: billsSummaryData,
-      theme: "grid",
+      theme: "plain",
       styles: {
         fontSize: 10,
-        cellPadding: 3,
+        cellPadding: 4,
+        lineColor: [229, 229, 229],
+        lineWidth: 0.5,
       },
       headStyles: {
-        fillColor: [52, 152, 219],
+        fillColor: [23, 23, 23],
         textColor: 255,
         fontStyle: "bold",
       },
       alternateRowStyles: {
-        fillColor: [240, 248, 255], // Light blue row background
+        fillColor: [250, 250, 250],
       },
       columnStyles: {
-        5: { cellWidth: 30, halign: "center" }, // Center-align the Status column
+        5: { cellWidth: 25, halign: "center" },
       },
     });
-
-    // // Key Recommendations
-    // doc.addPage("");
-    // doc.setFontSize(18);
-    // doc.setTextColor(41, 128, 185);
-    // doc.text("Key Recommendations", 15, 15);
-
-    // const allSuggestions = schedule.flatMap((alloc) =>
-    //   alloc.suggestedChanges.map((s) => ({
-    //     ...s,
-    //     payDate: alloc.payDate,
-    //   }))
-    // );
-
-    // if (allSuggestions.length > 0) {
-    //   autoTable(doc, {
-    //     startY: 20,
-    //     head: [["Bill", "Current Due Date", "Suggested Date"]],
-    //     body: allSuggestions.map((s) => [
-    //       s.billName,
-    //       new Date(s.originalDate).toLocaleDateString(),
-    //       new Date(s.suggestedDate).toLocaleDateString(),
-    //     ]),
-    //     theme: "grid",
-    //     styles: {
-    //       fontSize: 10,
-    //       cellPadding: 3,
-    //     },
-    //     headStyles: {
-    //       fillColor: [41, 128, 185],
-    //       textColor: 255,
-    //       fontStyle: "bold",
-    //     },
-    //     alternateRowStyles: {
-    //       fillColor: [240, 248, 255],
-    //     },
-    //   });
-    // } else {
-    //   doc.setFontSize(12);
-    //   doc.setTextColor(100, 116, 139);
-    //   doc.text("No scheduling adjustments recommended.", 15, 25);
-    // }
 
     // Detailed Payment Schedule
     doc.addPage("portrait");
     doc.setFontSize(18);
-    doc.setTextColor(41, 128, 185);
-    doc.text("Detailed Payment Schedule", 15, 15);
+    doc.setTextColor(23, 23, 23);
+    doc.text("Payment Schedule", 15, 15);
 
-    let scheduleY = 25;
+    // Yellow accent line
+    doc.setDrawColor(245, 158, 11);
+    doc.setLineWidth(2);
+    doc.line(15, 20, 55, 20);
+
+    let scheduleY = 30;
     schedule.forEach((alloc) => {
       if (scheduleY > 250) {
         doc.addPage();
         scheduleY = 20;
       }
 
-      doc.setFontSize(14);
-      doc.setTextColor(52, 152, 219);
+      doc.setFontSize(12);
+      doc.setTextColor(23, 23, 23);
       doc.text(
         `Paycheck: ${alloc.payDate.toLocaleDateString()}`,
         15,
@@ -587,8 +561,8 @@ export default function BudgetPlanner() {
       );
       scheduleY += 6;
 
-      doc.setFontSize(10);
-      doc.setTextColor(33, 33, 33);
+      doc.setFontSize(9);
+      doc.setTextColor(115, 115, 115);
       const usagePercent = (
         (alloc.usedFunds / alloc.paycheckAmount) *
         100
@@ -602,7 +576,7 @@ export default function BudgetPlanner() {
           alloc.paycheckAmount - alloc.usedFunds
         ).toFixed(2)}`,
         15,
-        scheduleY + 5
+        scheduleY + 4
       );
       scheduleY += 10;
 
@@ -625,20 +599,22 @@ export default function BudgetPlanner() {
               b.isLate ? `Late (${daysLate} days)` : "On Time",
             ];
           }),
-          theme: "grid",
+          theme: "plain",
           styles: {
-            fontSize: 10,
-            cellPadding: 2,
+            fontSize: 9,
+            cellPadding: 3,
+            lineColor: [229, 229, 229],
+            lineWidth: 0.5,
           },
           headStyles: {
-            fillColor: [52, 152, 219],
+            fillColor: [64, 64, 64],
             textColor: 255,
           },
           alternateRowStyles: {
-            fillColor: [240, 248, 255],
+            fillColor: [250, 250, 250],
           },
         });
-        scheduleY = doc.lastAutoTable.finalY + 10;
+        scheduleY = doc.lastAutoTable.finalY + 12;
       } else {
         doc.text("No bills assigned to this paycheck.", 15, scheduleY);
         scheduleY += 15;
@@ -651,185 +627,202 @@ export default function BudgetPlanner() {
   const [showInstructions, setShowInstructions] = useState(false);
 
   return (
-    <div className="min-h-screen bg-gray-50 py-4 sm:py-8">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="bg-white rounded-xl shadow-lg overflow-hidden mb-8">
-          <div className="bg-gradient-to-r from-blue-500 to-purple-600 px-4 sm:px-8 py-6 sm:py-8">
-            <div className="flex flex-col sm:flex-row justify-between items-center sm:items-center gap-6 sm:gap-8">
+    <div className="min-h-screen bg-neutral-100">
+      {/* Professional Header */}
+      <header className="bg-neutral-900 border-b-4 border-primary-500">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="py-6 sm:py-8">
+            <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-6">
               {/* Left Side - Title Section */}
-              <div className="text-center sm:text-left">
-        <div className="flex justify-center sm:justify-start mb-4">
-          <Wallet className="text-white w-10 h-10 sm:w-12 sm:h-12" />
-        </div>
-        <h1 className="text-3xl sm:text-4xl font-bold text-white mb-4">
-          Budget Planner
-        </h1>
-        <div className="flex flex-wrap gap-2 justify-center sm:justify-start">
-          <span className="bg-white/20 text-white px-4 py-1 rounded-full text-sm inline-block">
-            ✨ Free to use!
-          </span>
-          <button
-            onClick={() => setShowInstructions(true)}
-            className="bg-white/20 text-white px-4 py-1 rounded-full text-sm inline-flex items-center hover:bg-white/30 transition-colors"
-          >
-            <HelpCircle className="w-4 h-4 mr-1" />
-            Instructions
-          </button>
-        </div>
-      </div>
-
-      {/* Instructions Modal */}
-      {showInstructions && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-lg max-w-2xl w-full max-h-[80vh] overflow-y-auto">
-            <div className="flex justify-between items-center p-6 border-b">
-              <h2 className="text-xl font-bold text-gray-900">How to Use Budget Planner</h2>
-              <button
-                onClick={() => setShowInstructions(false)}
-                className="text-gray-500 hover:text-gray-700"
-              >
-                <X className="w-6 h-6" />
-              </button>
-            </div>
-            <div className="p-6 space-y-4">
-
-              <div className="space-y-2">
-                <h3 className="font-semibold text-gray-900">(If you have previous data: Import the JSON file.)</h3>
+              <div>
+                <div className="flex items-center gap-3 mb-2">
+                  <div className="bg-primary-500 p-2 rounded">
+                    <Wallet className="text-neutral-900 w-6 h-6 sm:w-7 sm:h-7" />
+                  </div>
+                  <h1 className="text-2xl sm:text-3xl font-bold text-white tracking-tight">
+                    BUDGET PLANNER
+                  </h1>
+                </div>
+                <p className="text-neutral-400 text-sm ml-12">
+                  Professional Financial Management
+                </p>
+                <div className="flex flex-wrap gap-2 mt-4 ml-12">
+                  <span className="bg-neutral-800 text-primary-500 px-3 py-1 rounded text-xs font-semibold uppercase tracking-wide border border-neutral-700">
+                    Free Tool
+                  </span>
+                  <button
+                    onClick={() => setShowInstructions(true)}
+                    className="bg-neutral-800 text-neutral-300 px-3 py-1 rounded text-xs font-semibold uppercase tracking-wide border border-neutral-700 hover:bg-neutral-700 hover:text-white transition-colors inline-flex items-center gap-1"
+                  >
+                    <HelpCircle className="w-3 h-3" />
+                    How to Use
+                  </button>
+                </div>
               </div>
-
-              <div className="space-y-2">
-                <h3 className="font-semibold text-gray-900">1. Income Setup</h3>
-                <p className="text-gray-600">Enter your income, choose pay frequency, the last time you were paid, amount you want to save from each check, and lastly how many months you want to project.</p>
-              </div>
-              
-              <div className="space-y-2">
-                <h3 className="font-semibold text-gray-900">2. Add Bills</h3>
-                <p className="text-gray-600">Input your regular bills with their amounts and due dates.</p>
-              </div>
-              
-              <div className="space-y-2">
-                <h3 className="font-semibold text-gray-900">3. Payment Schedule</h3>
-                <p className="text-gray-600">View and adjust your monthly payment schedule to stay on track.</p>
-              </div>
-              
-              <div className="space-y-2">
-                <h3 className="font-semibold text-gray-900">4. Export Data</h3>
-                <p className="text-gray-600">To save your data export the JSON and save on local device.</p>
-              </div>
-
-              <div className="space-y-2">
-                <h3 className="font-semibold text-gray-900">5. Download PDF</h3>
-                <p className="text-gray-600">For an easier way to view your schedule download the PDF printout.</p>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-    
 
               {/* Right Side - Savings Section */}
-              <div className="bg-white/10 rounded-lg p-4 sm:mr-2 w-full sm:w-auto max-w-xs self-center">
+              <div className="bg-neutral-800 rounded-lg p-5 w-full lg:w-auto lg:min-w-[320px] border border-neutral-700">
                 {/* Total Savings */}
-                <div className="flex items-center justify-center gap-2 mb-3">
-                  <TrendingUp className="text-white w-8 h-8 sm:w-10 sm:h-10" />
+                <div className="flex items-center gap-3 mb-4 pb-4 border-b border-neutral-700">
+                  <div className="bg-primary-500 p-2 rounded">
+                    <TrendingUp className="text-neutral-900 w-5 h-5" />
+                  </div>
                   <div>
-                    <div className="text-white font-medium text-base sm:text-lg">
+                    <div className="text-neutral-400 text-xs font-medium uppercase tracking-wide">
                       Projected Savings
                     </div>
-                    <div className="text-xl sm:text-2xl font-bold text-white">
+                    <div className="text-2xl font-bold text-white">
                       {formatCurrency(savings.total)}
                     </div>
                   </div>
                 </div>
 
                 {/* Additional Metrics */}
-                <div className="grid grid-cols-3 gap-3 pt-2 border-t border-white/20">
-                  {/* Monthly Savings */}
+                <div className="grid grid-cols-3 gap-4">
                   <div className="text-center">
-                    <div className="text-white/80 text-sm mb-1">Monthly</div>
-                    <div className="text-white font-semibold">
+                    <div className="text-neutral-500 text-xs font-medium uppercase tracking-wide mb-1">Monthly</div>
+                    <div className="text-white font-semibold text-sm">
                       {formatCurrency(savings.monthly)}
                     </div>
                   </div>
 
+                  <div className="text-center border-x border-neutral-700">
+                    <div className="text-neutral-500 text-xs font-medium uppercase tracking-wide mb-1">Rate</div>
+                    <div className="text-white font-semibold text-sm">
+                      {savings?.percent || 0}%
+                    </div>
+                  </div>
+
                   <div className="text-center">
-                    <div className="text-white/80 text-sm mb-1">Percent</div>
-                    <div className="text-white font-semibold">
-                      %{savings?.percent || 0}
-                    </div>
-                  </div>
-
-                  {/* Schedule Length */}
-                  <div className="text-center">
-                    <div className="text-white/80 text-sm mb-1">Duration</div>
-                    <div className="text-white font-semibold">
-                      {schedule?.length || 0} Checks
+                    <div className="text-neutral-500 text-xs font-medium uppercase tracking-wide mb-1">Periods</div>
+                    <div className="text-white font-semibold text-sm">
+                      {schedule?.length || 0}
                     </div>
                   </div>
                 </div>
-              </div>
-            </div>
-          </div>
-
-          {/* Savings Display */}
-          <div className="bg-white px-6 py-4">
-            {/* Action Buttons */}
-            <div className="flex flex-col lg:flex-row items-center justify-between space-y-4 lg:space-y-0 pt-4 border-t border-gray-100">
-              <div className="flex space-x-3">
-                <div className="group relative inline-block">
-                  <button
-                    onClick={handleExport}
-                    className="flex items-center px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600 transition"
-                  >
-                    <FileDown className="w-4 h-4 mr-2" />
-                    Export Data
-                  </button>
-                  <div className="absolute left-1/2 -translate-x-1/2 bottom-full mb-2 hidden group-hover:block">
-                    <div className="bg-gray-800 text-white text-sm rounded py-1 px-2 whitespace-nowrap">
-                      Save your data for later!
-                      <div className="absolute w-2 h-2 bg-gray-800 rotate-45 left-1/2 -translate-x-1/2 bottom-[-4px]"></div>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="group relative inline-block">
-                  <button
-                    onClick={handleImportClick}
-                    className="flex items-center px-4 py-2 bg-gray-500 text-white rounded-md hover:bg-gray-600 transition"
-                  >
-                    <FileUp className="w-4 h-4 mr-2" />
-                    Import Data
-                  </button>
-                  <div className="absolute left-1/2 -translate-x-1/2 bottom-full mb-2 hidden group-hover:block">
-                    <div className="bg-gray-800 text-white text-sm rounded py-1 px-2 whitespace-nowrap">
-                      Import your data
-                      <div className="absolute w-2 h-2 bg-gray-800 rotate-45 left-1/2 -translate-x-1/2 bottom-[-4px]"></div>
-                    </div>
-                  </div>
-                </div>
-
-                <input
-                  ref={fileInputRef}
-                  type="file"
-                  accept=".json"
-                  className="hidden"
-                  onChange={handleFileChange}
-                />
-              </div>
-              <div className="flex items-center">
-                <button
-                  onClick={handleDownloadPDF}
-                  className="inline-flex items-center px-4 py-2 bg-green-500 text-white rounded-md hover:bg-green-600 transition-colors duration-200"
-                >
-                  <Download className="w-4 h-4 mr-2" />
-                  Download PDF
-                </button>
               </div>
             </div>
           </div>
         </div>
+      </header>
 
-        {/* Main Content */}
+      {/* Instructions Modal */}
+      {showInstructions && (
+        <div className="fixed inset-0 bg-black/70 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-lg max-w-2xl w-full max-h-[80vh] overflow-y-auto shadow-elevated">
+            <div className="flex justify-between items-center p-6 border-b border-neutral-200 bg-neutral-900">
+              <h2 className="text-lg font-bold text-white uppercase tracking-wide">How to Use Budget Planner</h2>
+              <button
+                onClick={() => setShowInstructions(false)}
+                className="text-neutral-400 hover:text-white transition-colors"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <div className="p-6 space-y-5">
+              <div className="space-y-2">
+                <h3 className="font-bold text-neutral-900 flex items-center gap-2">
+                  <span className="bg-primary-500 text-neutral-900 w-6 h-6 rounded flex items-center justify-center text-sm font-bold">0</span>
+                  Import Previous Data
+                </h3>
+                <p className="text-neutral-600 ml-8">If you have previous data, import the JSON file to restore your budget.</p>
+              </div>
+
+              <div className="space-y-2">
+                <h3 className="font-bold text-neutral-900 flex items-center gap-2">
+                  <span className="bg-primary-500 text-neutral-900 w-6 h-6 rounded flex items-center justify-center text-sm font-bold">1</span>
+                  Income Setup
+                </h3>
+                <p className="text-neutral-600 ml-8">Enter your income, choose pay frequency, the last time you were paid, amount you want to save from each check, and how many months you want to project.</p>
+              </div>
+
+              <div className="space-y-2">
+                <h3 className="font-bold text-neutral-900 flex items-center gap-2">
+                  <span className="bg-primary-500 text-neutral-900 w-6 h-6 rounded flex items-center justify-center text-sm font-bold">2</span>
+                  Add Bills
+                </h3>
+                <p className="text-neutral-600 ml-8">Input your regular bills with their amounts and due dates.</p>
+              </div>
+
+              <div className="space-y-2">
+                <h3 className="font-bold text-neutral-900 flex items-center gap-2">
+                  <span className="bg-primary-500 text-neutral-900 w-6 h-6 rounded flex items-center justify-center text-sm font-bold">3</span>
+                  Payment Schedule
+                </h3>
+                <p className="text-neutral-600 ml-8">View and adjust your monthly payment schedule to stay on track.</p>
+              </div>
+
+              <div className="space-y-2">
+                <h3 className="font-bold text-neutral-900 flex items-center gap-2">
+                  <span className="bg-primary-500 text-neutral-900 w-6 h-6 rounded flex items-center justify-center text-sm font-bold">4</span>
+                  Export Data
+                </h3>
+                <p className="text-neutral-600 ml-8">Save your data by exporting the JSON file to your local device.</p>
+              </div>
+
+              <div className="space-y-2">
+                <h3 className="font-bold text-neutral-900 flex items-center gap-2">
+                  <span className="bg-primary-500 text-neutral-900 w-6 h-6 rounded flex items-center justify-center text-sm font-bold">5</span>
+                  Download PDF
+                </h3>
+                <p className="text-neutral-600 ml-8">For an easier way to view your schedule, download the PDF printout.</p>
+              </div>
+            </div>
+            <div className="p-4 bg-neutral-50 border-t border-neutral-200">
+              <button
+                onClick={() => setShowInstructions(false)}
+                className="w-full bg-neutral-900 text-white py-2 px-4 rounded font-semibold hover:bg-neutral-800 transition-colors"
+              >
+                Got It
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Action Bar */}
+      <div className="bg-white border-b border-neutral-200 shadow-sm">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="py-4 flex flex-col sm:flex-row items-center justify-between gap-4">
+            <div className="flex items-center gap-3">
+              <button
+                onClick={handleExport}
+                className="flex items-center px-4 py-2 bg-neutral-900 text-white rounded font-medium hover:bg-neutral-800 transition-colors text-sm"
+              >
+                <FileDown className="w-4 h-4 mr-2" />
+                Export Data
+              </button>
+
+              <button
+                onClick={handleImportClick}
+                className="flex items-center px-4 py-2 bg-white text-neutral-700 rounded font-medium border border-neutral-300 hover:bg-neutral-50 transition-colors text-sm"
+              >
+                <FileUp className="w-4 h-4 mr-2" />
+                Import Data
+              </button>
+
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept=".json"
+                className="hidden"
+                onChange={handleFileChange}
+              />
+            </div>
+
+            <button
+              onClick={handleDownloadPDF}
+              className="flex items-center px-4 py-2 bg-primary-500 text-neutral-900 rounded font-semibold hover:bg-primary-400 transition-colors text-sm"
+            >
+              <Download className="w-4 h-4 mr-2" />
+              Download PDF Report
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* Main Content */}
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="flex flex-col lg:flex-row gap-8">
           {/* Sidebar */}
           <aside className="lg:w-1/3 xl:w-1/4 space-y-6">
@@ -842,16 +835,25 @@ export default function BudgetPlanner() {
           </aside>
 
           {/* Main Content Area */}
-          <main className="lg:flex-1 space-y-6">
+          <section className="lg:flex-1 space-y-6">
             <BillList bills={bills} setBillsAction={setBills} />
             <PaymentSchedule
               schedule={schedule}
               setScheduleAction={setSchedule}
               savings={savings}
             />
-          </main>
+          </section>
         </div>
-      </div>
+      </main>
+
+      {/* Footer */}
+      <footer className="bg-neutral-900 border-t-4 border-primary-500 mt-12">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+          <div className="text-center text-neutral-400 text-sm">
+            Budget Planner - Free Financial Management Tool
+          </div>
+        </div>
+      </footer>
     </div>
   );
 }

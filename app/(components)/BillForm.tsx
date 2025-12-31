@@ -2,7 +2,7 @@
 import React, { useState } from "react";
 import { Bill } from "./types";
 import { v4 as uuidv4 } from "uuid";
-import { Calendar, DollarSign, Clock, Percent } from "lucide-react";
+import { Calendar, DollarSign, Clock, Percent, Plus } from "lucide-react";
 
 interface BillFormProps {
   setBillsAction: React.Dispatch<React.SetStateAction<Bill[]>>;
@@ -35,7 +35,7 @@ export default function BillForm({ setBillsAction }: BillFormProps) {
 
   const handleAddBill = () => {
     if (!newBill.name || !newBill.dueDate || newBill.paymentAmount <= 0) return;
-  
+
     setBillsAction((prev) => {
       const isDuplicate = prev.some(
         (bill) => bill.name === newBill.name && bill.dueDate === newBill.dueDate
@@ -50,7 +50,7 @@ export default function BillForm({ setBillsAction }: BillFormProps) {
             },
           ];
     });
-  
+
     setNewBill({
       name: "",
       paymentAmount: 0,
@@ -63,100 +63,121 @@ export default function BillForm({ setBillsAction }: BillFormProps) {
   };
 
   return (
-    <div className="bg-white p-6 rounded-xl border border-gray-200 shadow-sm">
-      <h2 className="text-lg font-semibold text-gray-900 mb-4">Add New Bill</h2>
-      
-      <div className="space-y-4">
+    <div className="bg-white rounded-lg border border-neutral-200 shadow-card overflow-hidden">
+      {/* Header */}
+      <div className="bg-neutral-900 px-5 py-4 border-b-2 border-primary-500">
+        <h2 className="text-base font-bold text-white uppercase tracking-wide">Add New Bill</h2>
+      </div>
+
+      {/* Form Content */}
+      <div className="p-5 space-y-5">
+        {/* Bill Name */}
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">Bill Name</label>
-          <input 
-            type="text" 
-            name="name" 
-            value={newBill.name} 
-            onChange={handleChange} 
-            className="block w-full rounded-md border text-gray-400 border-gray-300 shadow-sm py-2 px-3 focus:ring-blue-500 focus:border-blue-500"
+          <label className="block text-xs font-semibold text-neutral-500 uppercase tracking-wide mb-2">
+            Bill Name
+          </label>
+          <input
+            type="text"
+            name="name"
+            value={newBill.name}
+            onChange={handleChange}
+            className="block w-full rounded border border-neutral-300 bg-neutral-50 text-neutral-900 py-2.5 px-3 text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition-colors"
             placeholder="Enter bill name"
           />
         </div>
 
+        {/* Payment Amount */}
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">Payment Amount</label>
+          <label className="block text-xs font-semibold text-neutral-500 uppercase tracking-wide mb-2">
+            Payment Amount
+          </label>
           <div className="relative">
             <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-              <DollarSign className="h-5 w-5 text-gray-400" />
+              <DollarSign className="h-4 w-4 text-neutral-400" />
             </div>
-            <input 
-              type="number" 
-              name="paymentAmount" 
-              value={newBill.paymentAmount} 
-              onChange={handleChange} 
-              className="pl-10 block w-full rounded-md border text-gray-400 border-gray-300 shadow-sm py-2 focus:ring-blue-500 focus:border-blue-500"
+            <input
+              type="number"
+              name="paymentAmount"
+              value={newBill.paymentAmount}
+              onChange={handleChange}
+              className="pl-10 block w-full rounded border border-neutral-300 bg-neutral-50 text-neutral-900 py-2.5 text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition-colors"
               placeholder="0.00"
             />
           </div>
         </div>
 
+        {/* APR */}
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">APR</label>
+          <label className="block text-xs font-semibold text-neutral-500 uppercase tracking-wide mb-2">
+            APR (%)
+          </label>
           <div className="relative">
             <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-              <Percent className="h-5 w-5 text-gray-400" />
+              <Percent className="h-4 w-4 text-neutral-400" />
             </div>
-            <input 
-              type="number" 
-              name="apr" 
-              value={newBill.apr} 
-              onChange={handleChange} 
-              className="pl-10 block w-full rounded-md border text-gray-400 border-gray-300 shadow-sm py-2 focus:ring-blue-500 focus:border-blue-500"
+            <input
+              type="number"
+              name="apr"
+              value={newBill.apr}
+              onChange={handleChange}
+              className="pl-10 block w-full rounded border border-neutral-300 bg-neutral-50 text-neutral-900 py-2.5 text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition-colors"
               placeholder="0.00"
             />
           </div>
         </div>
 
+        {/* Due Date */}
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">Due Date</label>
+          <label className="block text-xs font-semibold text-neutral-500 uppercase tracking-wide mb-2">
+            Due Date
+          </label>
           <div className="relative">
             <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-              <Calendar className="h-5 w-5 text-gray-400" />
+              <Calendar className="h-4 w-4 text-neutral-400" />
             </div>
-            <input 
-              type="date" 
-              name="dueDate" 
-              value={newBill.dueDate} 
-              onChange={handleChange} 
-              className="pl-10 block w-full rounded-md border text-gray-400 border-gray-300 shadow-sm py-2 focus:ring-blue-500 focus:border-blue-500"
+            <input
+              type="date"
+              name="dueDate"
+              value={newBill.dueDate}
+              onChange={handleChange}
+              className="pl-10 block w-full rounded border border-neutral-300 bg-neutral-50 text-neutral-900 py-2.5 text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition-colors"
             />
           </div>
         </div>
 
+        {/* Allowable Late Days */}
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">Allowable Late Days</label>
+          <label className="block text-xs font-semibold text-neutral-500 uppercase tracking-wide mb-2">
+            Allowable Late Days
+          </label>
           <div className="relative">
             <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-          <Clock className="h-5 w-5 text-gray-400" />
+              <Clock className="h-4 w-4 text-neutral-400" />
             </div>
-            <input 
-              type="number" 
-              name="allowableLateDay" 
-              value={newBill.allowableLateDay} 
-              onChange={handleChange} 
+            <input
+              type="number"
+              name="allowableLateDay"
+              value={newBill.allowableLateDay}
+              onChange={handleChange}
               min="0"
               max="30"
-              className="pl-10 block w-full rounded-md border text-gray-400 border-gray-300 shadow-sm py-2 focus:ring-blue-500 focus:border-blue-500"
-              placeholder="Number of days payment can be late"
+              className="pl-10 block w-full rounded border border-neutral-300 bg-neutral-50 text-neutral-900 py-2.5 text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition-colors"
+              placeholder="0"
             />
-            
           </div>
-          <p className="mt-1 text-sm text-gray-500">Maximum number of days the payment can be late</p>
+          <p className="mt-1.5 text-xs text-neutral-400">Maximum days payment can be late</p>
         </div>
-        
+
+        {/* Bill Type */}
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">Bill Type</label>
-          <select 
-            name="billType" 
-            value={newBill.billType} 
-            onChange={handleChange} 
-            className="block w-full rounded-md border text-gray-400 border-gray-300 shadow-sm py-2 focus:ring-blue-500 focus:border-blue-500"
+          <label className="block text-xs font-semibold text-neutral-500 uppercase tracking-wide mb-2">
+            Bill Type
+          </label>
+          <select
+            name="billType"
+            value={newBill.billType}
+            onChange={handleChange}
+            className="block w-full rounded border border-neutral-300 bg-neutral-50 text-neutral-900 py-2.5 px-3 text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition-colors"
           >
             <option value="recurring">Recurring (Monthly)</option>
             <option value="one-time">One-Time</option>
@@ -164,11 +185,13 @@ export default function BillForm({ setBillsAction }: BillFormProps) {
           </select>
         </div>
 
-        <button 
-          onClick={handleAddBill} 
-          className="w-full bg-blue-500 text-white py-2 px-4 rounded-md hover:bg-blue-600 transition-colors duration-200 flex items-center justify-center space-x-2"
+        {/* Submit Button */}
+        <button
+          onClick={handleAddBill}
+          className="w-full bg-primary-500 text-neutral-900 py-2.5 px-4 rounded font-semibold hover:bg-primary-400 transition-colors flex items-center justify-center gap-2 text-sm"
         >
-          <span>Add Bill</span>
+          <Plus className="w-4 h-4" />
+          Add Bill
         </button>
       </div>
     </div>
