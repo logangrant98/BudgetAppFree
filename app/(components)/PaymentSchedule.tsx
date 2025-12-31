@@ -21,7 +21,8 @@ import {
   Check,
   X,
   TrendingUp,
-  Circle
+  Circle,
+  Loader2
 } from "lucide-react";
 
 interface SuggestedChange {
@@ -102,6 +103,10 @@ export default function PaymentSchedule({
   const [showAddSavingsModal, setShowAddSavingsModal] = useState(false);
   const [oneTimeSavingsInput, setOneTimeSavingsInput] = useState<string>("");
   const [animatingBills, setAnimatingBills] = useState<Set<string>>(new Set());
+  const [savingStates, setSavingStates] = useState<Set<string>>(new Set());
+  const [loadingBillPayments, setLoadingBillPayments] = useState<Set<string>>(new Set());
+  const [loadingSavingsDeposited, setLoadingSavingsDeposited] = useState<Set<string>>(new Set());
+  const [loadingOneTimeBills, setLoadingOneTimeBills] = useState<Set<string>>(new Set());
 
   const handleOpenAddModal = (payDate: Date) => {
     // Format date as YYYY-MM-DD for the modal
@@ -137,20 +142,30 @@ export default function PaymentSchedule({
   const handleToggleBillPaid = async (paycheckDate: string, billName: string, billDueDate: string, currentlyPaid: boolean) => {
     const billKey = `${paycheckDate}-${billName}-${billDueDate}`;
 
-    // Add to animating set
+    // Add to loading set
+    setLoadingBillPayments(prev => new Set(prev).add(billKey));
     setAnimatingBills(prev => new Set(prev).add(billKey));
 
-    // Call the API
-    await onToggleBillPaid(paycheckDate, billName, billDueDate, !currentlyPaid);
-
-    // Remove from animating set after animation completes
-    setTimeout(() => {
-      setAnimatingBills(prev => {
+    try {
+      // Call the API
+      await onToggleBillPaid(paycheckDate, billName, billDueDate, !currentlyPaid);
+    } finally {
+      // Remove from loading set
+      setLoadingBillPayments(prev => {
         const next = new Set(prev);
         next.delete(billKey);
         return next;
       });
-    }, 500);
+
+      // Remove from animating set after animation completes
+      setTimeout(() => {
+        setAnimatingBills(prev => {
+          const next = new Set(prev);
+          next.delete(billKey);
+          return next;
+        });
+      }, 500);
+    }
   };
 
   // Handle adding one-time savings
@@ -194,7 +209,17 @@ export default function PaymentSchedule({
     const dateStr = payDate.toISOString().split('T')[0];
     const amount = parseFloat(editingSavingsAmount);
     if (!isNaN(amount) && amount >= 0) {
-      await onUpdatePaycheckSavings(dateStr, amount);
+      // Add loading state
+      setSavingStates(prev => new Set(prev).add(dateStr));
+      try {
+        await onUpdatePaycheckSavings(dateStr, amount);
+      } finally {
+        setSavingStates(prev => {
+          const next = new Set(prev);
+          next.delete(dateStr);
+          return next;
+        });
+      }
     }
     setEditingSavingsDate(null);
     setEditingSavingsAmount("");
@@ -204,6 +229,34 @@ export default function PaymentSchedule({
   const handleCancelEditSavings = () => {
     setEditingSavingsDate(null);
     setEditingSavingsAmount("");
+  };
+
+  // Handle toggling savings deposited with loading state
+  const handleToggleSavingsDeposited = async (savingsId: string, isDeposited: boolean) => {
+    setLoadingSavingsDeposited(prev => new Set(prev).add(savingsId));
+    try {
+      await onToggleSavingsDeposited(savingsId, isDeposited);
+    } finally {
+      setLoadingSavingsDeposited(prev => {
+        const next = new Set(prev);
+        next.delete(savingsId);
+        return next;
+      });
+    }
+  };
+
+  // Handle toggling one-time bill paid with loading state
+  const handleToggleOneTimeBillPaid = async (billId: string, isPaid: boolean) => {
+    setLoadingOneTimeBills(prev => new Set(prev).add(billId));
+    try {
+      await onToggleOneTimeBillPaid(billId, isPaid);
+    } finally {
+      setLoadingOneTimeBills(prev => {
+        const next = new Set(prev);
+        next.delete(billId);
+        return next;
+      });
+    }
   };
 
   // Calculate total savings progress
@@ -453,10 +506,15 @@ export default function PaymentSchedule({
                       </div>
                       <button
                         onClick={() => handleSaveSavings(alloc.payDate)}
-                        className="p-1.5 bg-green-500 text-white rounded hover:bg-green-600 transition-colors"
+                        className="p-1.5 bg-green-500 text-white rounded hover:bg-green-600 transition-colors disabled:opacity-50"
                         title="Save"
+                        disabled={savingStates.has(dateStr)}
                       >
-                        <Check className="w-4 h-4" />
+                        {savingStates.has(dateStr) ? (
+                          <Loader2 className="w-4 h-4 animate-spin" />
+                        ) : (
+                          <Check className="w-4 h-4" />
+                        )}
                       </button>
                       <button
                         onClick={handleCancelEditSavings}
@@ -487,13 +545,25 @@ export default function PaymentSchedule({
                         <Edit3 className="w-4 h-4" />
                       </button>
                       {savingsInfo.id ? (
-                        <input
-                          type="checkbox"
-                          checked={savingsInfo.isDeposited}
-                          onChange={(e) => onToggleSavingsDeposited(savingsInfo.id!, e.target.checked)}
-                          className="w-6 h-6 rounded border-green-300 text-green-500 focus:ring-green-500 cursor-pointer"
-                          title="Mark as deposited"
-                        />
+                        loadingSavingsDeposited.has(savingsInfo.id) ? (
+                          <div className="w-6 h-6 flex items-center justify-center">
+                            <Loader2 className="w-5 h-5 text-green-500 animate-spin" />
+                          </div>
+                        ) : (
+                          <button
+                            onClick={() => handleToggleSavingsDeposited(savingsInfo.id!, !savingsInfo.isDeposited)}
+                            className={`w-7 h-7 rounded-full border-2 flex items-center justify-center transition-all duration-300 ${
+                              savingsInfo.isDeposited
+                                ? 'bg-green-500 border-green-500'
+                                : 'border-green-300 hover:border-green-400 hover:bg-green-50'
+                            }`}
+                            title={savingsInfo.isDeposited ? "Mark as not deposited" : "Mark as deposited"}
+                          >
+                            {savingsInfo.isDeposited && (
+                              <Check className="w-4 h-4 text-white" />
+                            )}
+                          </button>
+                        )
                       ) : (
                         <button
                           onClick={async () => {
@@ -609,23 +679,29 @@ export default function PaymentSchedule({
                           className={`${rowClass} transition-colors`}
                         >
                           <td className="px-3 py-4 whitespace-nowrap text-center">
-                            <button
-                              onClick={() => handleToggleBillPaid(dateStr, bill.name, bill.dueDate, isPaid)}
-                              className={`relative w-7 h-7 rounded-full border-2 flex items-center justify-center transition-all duration-300 ${
-                                isPaid
-                                  ? 'bg-green-500 border-green-500'
-                                  : 'border-neutral-300 hover:border-green-400 hover:bg-green-50'
-                              } ${isAnimating ? 'scale-110' : ''}`}
-                              title={isPaid ? "Mark as unpaid" : "Mark as paid"}
-                            >
-                              {isPaid && (
-                                <Check
-                                  className={`w-4 h-4 text-white transition-all duration-300 ${
-                                    isAnimating ? 'animate-bounce' : ''
-                                  }`}
-                                />
-                              )}
-                            </button>
+                            {loadingBillPayments.has(billKey) ? (
+                              <div className="w-7 h-7 flex items-center justify-center">
+                                <Loader2 className="w-5 h-5 text-green-500 animate-spin" />
+                              </div>
+                            ) : (
+                              <button
+                                onClick={() => handleToggleBillPaid(dateStr, bill.name, bill.dueDate, isPaid)}
+                                className={`relative w-7 h-7 rounded-full border-2 flex items-center justify-center transition-all duration-300 ${
+                                  isPaid
+                                    ? 'bg-green-500 border-green-500'
+                                    : 'border-neutral-300 hover:border-green-400 hover:bg-green-50'
+                                } ${isAnimating ? 'scale-110' : ''}`}
+                                title={isPaid ? "Mark as unpaid" : "Mark as paid"}
+                              >
+                                {isPaid && (
+                                  <Check
+                                    className={`w-4 h-4 text-white transition-all duration-300 ${
+                                      isAnimating ? 'animate-bounce' : ''
+                                    }`}
+                                  />
+                                )}
+                              </button>
+                            )}
                           </td>
                           <td className="px-5 py-4 whitespace-nowrap">
                             <div className="flex items-center gap-2">
@@ -738,7 +814,7 @@ export default function PaymentSchedule({
               </div>
             ) : null}
 
-            {/* One-Time Bills Section */}
+            {/* One-Time Bills Section - Rendered as table rows like regular bills */}
             {(() => {
               const paycheckOneTimeBills = getOneTimeBillsForPaycheck(alloc.payDate);
               if (paycheckOneTimeBills.length === 0 && alloc.bills.length === 0) {
@@ -755,66 +831,129 @@ export default function PaymentSchedule({
               if (paycheckOneTimeBills.length === 0) return null;
 
               return (
-                <div className="border-t border-neutral-200">
-                  <div className="bg-blue-50 px-5 py-3 border-b border-blue-100">
-                    <h4 className="text-xs font-semibold text-blue-800 uppercase tracking-wide flex items-center gap-2">
-                      <DollarSign className="w-3.5 h-3.5" />
-                      One-Time Bills ({paycheckOneTimeBills.length})
-                    </h4>
-                  </div>
-                  <div className="divide-y divide-neutral-100">
-                    {paycheckOneTimeBills.map((bill) => (
-                      <div
-                        key={bill.id}
-                        className={`flex items-center justify-between px-5 py-4 hover:bg-neutral-50 transition-colors ${
-                          bill.isPaid ? 'bg-green-50/50' : ''
-                        }`}
-                      >
-                        <div className="flex items-center gap-3">
-                          <input
-                            type="checkbox"
-                            checked={bill.isPaid}
-                            onChange={(e) => onToggleOneTimeBillPaid(bill.id, e.target.checked)}
-                            className="w-5 h-5 rounded border-neutral-300 text-primary-500 focus:ring-primary-500 cursor-pointer"
-                          />
-                          <div className={bill.isPaid ? 'line-through text-neutral-400' : ''}>
-                            <span className="text-sm font-semibold text-neutral-900">
-                              {bill.name}
-                            </span>
-                            {bill.dueDate && (
-                              <span className="text-xs text-neutral-500 ml-2">
-                                Due: {new Date(bill.dueDate).toLocaleDateString("en-US", {
+                <div className="overflow-x-auto border-t border-neutral-200">
+                  <table className="min-w-full">
+                    {alloc.bills.length === 0 && (
+                      <thead>
+                        <tr className="bg-neutral-50 border-b border-neutral-200">
+                          <th className="px-3 py-3 text-center text-xs font-semibold text-neutral-500 uppercase tracking-wide w-12">
+                            Paid
+                          </th>
+                          <th className="px-5 py-3 text-left text-xs font-semibold text-neutral-500 uppercase tracking-wide">
+                            Bill
+                          </th>
+                          <th className="px-5 py-3 text-right text-xs font-semibold text-neutral-500 uppercase tracking-wide">
+                            Amount
+                          </th>
+                          <th className="px-5 py-3 text-left text-xs font-semibold text-neutral-500 uppercase tracking-wide">
+                            Due
+                          </th>
+                          <th className="px-5 py-3 text-center text-xs font-semibold text-neutral-500 uppercase tracking-wide">
+                            Status
+                          </th>
+                          <th className="px-5 py-3 text-center text-xs font-semibold text-neutral-500 uppercase tracking-wide">
+                            Actions
+                          </th>
+                        </tr>
+                      </thead>
+                    )}
+                    <tbody className="divide-y divide-neutral-100">
+                      {paycheckOneTimeBills.map((bill) => {
+                        const isLoading = loadingOneTimeBills.has(bill.id);
+                        const rowClass = bill.isPaid
+                          ? "bg-green-50/50"
+                          : "hover:bg-neutral-50";
+
+                        return (
+                          <tr
+                            key={bill.id}
+                            className={`${rowClass} transition-colors`}
+                          >
+                            <td className="px-3 py-4 whitespace-nowrap text-center">
+                              {isLoading ? (
+                                <div className="w-7 h-7 flex items-center justify-center">
+                                  <Loader2 className="w-5 h-5 text-green-500 animate-spin" />
+                                </div>
+                              ) : (
+                                <button
+                                  onClick={() => handleToggleOneTimeBillPaid(bill.id, !bill.isPaid)}
+                                  className={`relative w-7 h-7 rounded-full border-2 flex items-center justify-center transition-all duration-300 ${
+                                    bill.isPaid
+                                      ? 'bg-green-500 border-green-500'
+                                      : 'border-neutral-300 hover:border-green-400 hover:bg-green-50'
+                                  }`}
+                                  title={bill.isPaid ? "Mark as unpaid" : "Mark as paid"}
+                                >
+                                  {bill.isPaid && (
+                                    <Check className="w-4 h-4 text-white" />
+                                  )}
+                                </button>
+                              )}
+                            </td>
+                            <td className="px-5 py-4 whitespace-nowrap">
+                              <div className="flex items-center gap-2">
+                                <span className={`text-sm font-semibold transition-all duration-300 ${
+                                  bill.isPaid
+                                    ? 'line-through text-neutral-400'
+                                    : 'text-neutral-900'
+                                }`}>
+                                  {bill.name}
+                                </span>
+                                <span className={`px-2 py-0.5 text-xs font-semibold rounded uppercase tracking-wide ${
+                                  bill.isPaid ? 'bg-neutral-200 text-neutral-500' : 'bg-blue-100 text-blue-800'
+                                }`}>
+                                  One-Time
+                                </span>
+                                {bill.isPaid && (
+                                  <span className="px-2 py-0.5 text-xs font-semibold rounded bg-green-100 text-green-700 uppercase tracking-wide flex items-center gap-1">
+                                    <CheckCircle className="w-3 h-3" />
+                                    Paid
+                                  </span>
+                                )}
+                              </div>
+                            </td>
+                            <td className="px-5 py-4 whitespace-nowrap text-right">
+                              <span className={`text-sm font-semibold transition-all duration-300 ${
+                                bill.isPaid ? 'line-through text-neutral-400' : 'text-neutral-900'
+                              }`}>
+                                {formatCurrency(bill.amount)}
+                              </span>
+                            </td>
+                            <td className="px-5 py-4 whitespace-nowrap">
+                              <span className={`text-sm ${bill.isPaid ? 'text-neutral-400' : 'text-neutral-600'}`}>
+                                {bill.dueDate ? new Date(bill.dueDate).toLocaleDateString("en-US", {
                                   month: "short",
                                   day: "numeric"
-                                })}
+                                }) : '—'}
                               </span>
-                            )}
-                          </div>
-                          <span className="px-2 py-0.5 text-xs font-semibold rounded bg-blue-100 text-blue-800 uppercase tracking-wide">
-                            One-Time
-                          </span>
-                          {bill.isPaid && (
-                            <span className="px-2 py-0.5 text-xs font-semibold rounded bg-green-100 text-green-800 uppercase tracking-wide flex items-center gap-1">
-                              <CheckCircle className="w-3 h-3" />
-                              Paid
-                            </span>
-                          )}
-                        </div>
-                        <div className="flex items-center gap-4">
-                          <span className={`text-sm font-semibold ${bill.isPaid ? 'text-neutral-400 line-through' : 'text-neutral-900'}`}>
-                            {formatCurrency(bill.amount)}
-                          </span>
-                          <button
-                            onClick={() => onDeleteOneTimeBill(bill.id)}
-                            className="inline-flex items-center justify-center w-7 h-7 rounded bg-neutral-100 text-neutral-600 hover:bg-red-100 hover:text-red-600 transition-colors"
-                            title="Delete this bill"
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </button>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
+                            </td>
+                            <td className="px-5 py-4 whitespace-nowrap text-center">
+                              {bill.isPaid ? (
+                                <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded text-xs font-semibold bg-green-100 text-green-800">
+                                  <CheckCircle className="w-3 h-3" />
+                                  Complete
+                                </span>
+                              ) : (
+                                <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded text-xs font-semibold bg-blue-100 text-blue-800">
+                                  <Clock className="w-3 h-3" />
+                                  Pending
+                                </span>
+                              )}
+                            </td>
+                            <td className="px-5 py-4 whitespace-nowrap text-center">
+                              <button
+                                onClick={() => onDeleteOneTimeBill(bill.id)}
+                                className="inline-flex items-center justify-center w-7 h-7 rounded bg-neutral-100 text-neutral-600 hover:bg-red-100 hover:text-red-600 transition-colors"
+                                title="Delete this bill"
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </button>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
                 </div>
               );
             })()}
