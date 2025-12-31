@@ -1,6 +1,6 @@
 "use client";
 import React, { useState, useMemo, useEffect, useRef } from "react";
-import { Income, IncomeSource, Bill, OneTimeBill, AllocatedBill, PaycheckSavings } from "./(components)/types";
+import { Income, IncomeSource, Bill, OneTimeBill, AllocatedBill, PaycheckSavings, BillPayment } from "./(components)/types";
 import IncomeForm from "./(components)/IncomeForm";
 import BillForm from "./(components)/BillForm";
 import BillList from "./(components)/BillList/BillList";
@@ -52,10 +52,12 @@ export default function BudgetPlanner() {
   const [schedule, setSchedule] = useState<Allocation[]>([]);
   const [oneTimeBills, setOneTimeBills] = useState<OneTimeBill[]>([]);
   const [paycheckSavings, setPaycheckSavings] = useState<PaycheckSavings[]>([]);
+  const [billPayments, setBillPayments] = useState<BillPayment[]>([]);
+  const [oneTimeSavingsTotal, setOneTimeSavingsTotal] = useState<number>(0);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { user, logout } = useAuth();
 
-  // Fetch one-time bills and paycheck savings on mount when user is logged in
+  // Fetch one-time bills, paycheck savings, and bill payments on mount when user is logged in
   useEffect(() => {
     const fetchOneTimeBills = async () => {
       if (!user) return;
@@ -83,8 +85,28 @@ export default function BudgetPlanner() {
       }
     };
 
+    const fetchBillPayments = async () => {
+      if (!user) return;
+      try {
+        const response = await fetch('/api/bill-payments');
+        if (response.ok) {
+          const data = await response.json();
+          setBillPayments(data);
+        }
+      } catch (error) {
+        console.error('Failed to fetch bill payments:', error);
+      }
+    };
+
+    // Load one-time savings from localStorage
+    const savedOneTimeSavings = localStorage.getItem('oneTimeSavingsTotal');
+    if (savedOneTimeSavings) {
+      setOneTimeSavingsTotal(parseFloat(savedOneTimeSavings));
+    }
+
     fetchOneTimeBills();
     fetchPaycheckSavings();
+    fetchBillPayments();
   }, [user]);
 
   // Handler to add a new one-time bill
@@ -189,6 +211,45 @@ export default function BudgetPlanner() {
     } catch (error) {
       console.error('Failed to update savings status:', error);
     }
+  };
+
+  // Handler to toggle bill paid status
+  const handleToggleBillPaid = async (
+    paycheckDate: string,
+    billName: string,
+    billDueDate: string,
+    isPaid: boolean
+  ) => {
+    try {
+      const response = await fetch('/api/bill-payments', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ paycheckDate, billName, billDueDate, isPaid }),
+      });
+      if (response.ok) {
+        if (isPaid) {
+          const newPayment = await response.json();
+          setBillPayments((prev) => [...prev.filter(p =>
+            !(p.paycheckDate === paycheckDate && p.billName === billName && p.billDueDate === billDueDate)
+          ), newPayment]);
+        } else {
+          setBillPayments((prev) =>
+            prev.filter(p =>
+              !(p.paycheckDate === paycheckDate && p.billName === billName && p.billDueDate === billDueDate)
+            )
+          );
+        }
+      }
+    } catch (error) {
+      console.error('Failed to toggle bill payment:', error);
+    }
+  };
+
+  // Handler to add one-time savings (stored in localStorage for now)
+  const handleAddOneTimeSavings = async (amount: number) => {
+    const newTotal = oneTimeSavingsTotal + amount;
+    setOneTimeSavingsTotal(newTotal);
+    localStorage.setItem('oneTimeSavingsTotal', newTotal.toString());
   };
 
   // Calculate default savings for a paycheck based on percentage
@@ -1209,6 +1270,10 @@ export default function BudgetPlanner() {
               onUpdatePaycheckSavings={handleUpdatePaycheckSavings}
               onToggleSavingsDeposited={handleToggleSavingsDeposited}
               getDefaultSavingsForPaycheck={getDefaultSavingsForPaycheck}
+              billPayments={billPayments}
+              onToggleBillPaid={handleToggleBillPaid}
+              onAddOneTimeSavings={handleAddOneTimeSavings}
+              oneTimeSavingsTotal={oneTimeSavingsTotal}
             />
           </section>
         </div>

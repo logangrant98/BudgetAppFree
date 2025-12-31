@@ -1,6 +1,6 @@
 "use client";
 import React, { useState } from "react";
-import { Bill, OneTimeBill, AllocatedBill, PaycheckSavings } from "./types";
+import { Bill, OneTimeBill, AllocatedBill, PaycheckSavings, BillPayment } from "./types";
 import AddOneTimeBillModal from "./AddOneTimeBillModal";
 import '../../styles/globals.css';
 
@@ -20,7 +20,8 @@ import {
   Edit3,
   Check,
   X,
-  TrendingUp
+  TrendingUp,
+  Circle
 } from "lucide-react";
 
 interface SuggestedChange {
@@ -51,6 +52,10 @@ interface PaymentScheduleProps {
   onUpdatePaycheckSavings: (paycheckDate: string, amount: number) => Promise<void>;
   onToggleSavingsDeposited: (savingsId: string, isDeposited: boolean) => Promise<void>;
   getDefaultSavingsForPaycheck: (paycheckAmount: number) => number;
+  billPayments: BillPayment[];
+  onToggleBillPaid: (paycheckDate: string, billName: string, billDueDate: string, isPaid: boolean) => Promise<void>;
+  onAddOneTimeSavings: (amount: number) => Promise<void>;
+  oneTimeSavingsTotal: number;
 }
 
 const formatCurrency = (value: number): string =>
@@ -82,7 +87,11 @@ export default function PaymentSchedule({
   paycheckSavings,
   onUpdatePaycheckSavings,
   onToggleSavingsDeposited,
-  getDefaultSavingsForPaycheck
+  getDefaultSavingsForPaycheck,
+  billPayments,
+  onToggleBillPaid,
+  onAddOneTimeSavings,
+  oneTimeSavingsTotal
 }: PaymentScheduleProps) {
 
   const [showSuggestions, setShowSuggestions] = useState(true);
@@ -90,6 +99,9 @@ export default function PaymentSchedule({
   const [selectedPaycheckDate, setSelectedPaycheckDate] = useState<string>("");
   const [editingSavingsDate, setEditingSavingsDate] = useState<string | null>(null);
   const [editingSavingsAmount, setEditingSavingsAmount] = useState<string>("");
+  const [showAddSavingsModal, setShowAddSavingsModal] = useState(false);
+  const [oneTimeSavingsInput, setOneTimeSavingsInput] = useState<string>("");
+  const [animatingBills, setAnimatingBills] = useState<Set<string>>(new Set());
 
   const handleOpenAddModal = (payDate: Date) => {
     // Format date as YYYY-MM-DD for the modal
@@ -106,6 +118,49 @@ export default function PaymentSchedule({
   const getOneTimeBillsForPaycheck = (payDate: Date): OneTimeBill[] => {
     const dateStr = payDate.toISOString().split('T')[0];
     return oneTimeBills.filter(bill => bill.paycheckDate === dateStr);
+  };
+
+  // Get total unpaid one-time bills amount for a paycheck
+  const getOneTimeBillsTotal = (payDate: Date): number => {
+    const bills = getOneTimeBillsForPaycheck(payDate);
+    return bills.filter(bill => !bill.isPaid).reduce((sum, bill) => sum + bill.amount, 0);
+  };
+
+  // Check if a bill is paid
+  const isBillPaid = (paycheckDate: string, billName: string, billDueDate: string): boolean => {
+    return billPayments.some(
+      p => p.paycheckDate === paycheckDate && p.billName === billName && p.billDueDate === billDueDate && p.isPaid
+    );
+  };
+
+  // Handle toggling bill paid with animation
+  const handleToggleBillPaid = async (paycheckDate: string, billName: string, billDueDate: string, currentlyPaid: boolean) => {
+    const billKey = `${paycheckDate}-${billName}-${billDueDate}`;
+
+    // Add to animating set
+    setAnimatingBills(prev => new Set(prev).add(billKey));
+
+    // Call the API
+    await onToggleBillPaid(paycheckDate, billName, billDueDate, !currentlyPaid);
+
+    // Remove from animating set after animation completes
+    setTimeout(() => {
+      setAnimatingBills(prev => {
+        const next = new Set(prev);
+        next.delete(billKey);
+        return next;
+      });
+    }, 500);
+  };
+
+  // Handle adding one-time savings
+  const handleAddOneTimeSavings = async () => {
+    const amount = parseFloat(oneTimeSavingsInput);
+    if (!isNaN(amount) && amount > 0) {
+      await onAddOneTimeSavings(amount);
+      setOneTimeSavingsInput("");
+      setShowAddSavingsModal(false);
+    }
   };
 
   // Get savings for a specific paycheck date
@@ -163,6 +218,9 @@ export default function PaymentSchedule({
         totalDeposited += savingsInfo.amount;
       }
     });
+
+    // Add one-time savings to deposited amount
+    totalDeposited += oneTimeSavingsTotal;
 
     return { totalTarget, totalDeposited, percentage: totalTarget > 0 ? (totalDeposited / totalTarget) * 100 : 0 };
   };
@@ -246,9 +304,18 @@ export default function PaymentSchedule({
                 <p className="text-green-200 text-xs mt-0.5">Track your savings goals across all paychecks</p>
               </div>
             </div>
-            <div className="text-right">
-              <p className="text-2xl font-bold text-white">{formatCurrency(savingsProgress.totalDeposited)}</p>
-              <p className="text-green-200 text-xs">of {formatCurrency(savingsProgress.totalTarget)} target</p>
+            <div className="flex items-center gap-3">
+              <div className="text-right">
+                <p className="text-2xl font-bold text-white">{formatCurrency(savingsProgress.totalDeposited)}</p>
+                <p className="text-green-200 text-xs">of {formatCurrency(savingsProgress.totalTarget)} target</p>
+              </div>
+              <button
+                onClick={() => setShowAddSavingsModal(true)}
+                className="bg-green-500 hover:bg-green-400 text-green-900 p-2 rounded transition-colors"
+                title="Add one-time savings deposit"
+              >
+                <Plus className="w-5 h-5" />
+              </button>
             </div>
           </div>
         </div>
@@ -267,7 +334,7 @@ export default function PaymentSchedule({
               )}
             </div>
           </div>
-          <div className="grid grid-cols-3 gap-4 mt-4">
+          <div className="grid grid-cols-4 gap-4 mt-4">
             <div className="text-center p-3 bg-neutral-50 rounded-lg">
               <p className="text-xs font-semibold text-neutral-500 uppercase tracking-wide">Target Rate</p>
               <p className="text-lg font-bold text-neutral-900">{savings.percent}%</p>
@@ -276,9 +343,13 @@ export default function PaymentSchedule({
               <p className="text-xs font-semibold text-green-600 uppercase tracking-wide">Deposited</p>
               <p className="text-lg font-bold text-green-700">{formatCurrency(savingsProgress.totalDeposited)}</p>
             </div>
+            <div className="text-center p-3 bg-blue-50 rounded-lg">
+              <p className="text-xs font-semibold text-blue-600 uppercase tracking-wide">Bonus</p>
+              <p className="text-lg font-bold text-blue-700">{formatCurrency(oneTimeSavingsTotal)}</p>
+            </div>
             <div className="text-center p-3 bg-neutral-50 rounded-lg">
               <p className="text-xs font-semibold text-neutral-500 uppercase tracking-wide">Remaining</p>
-              <p className="text-lg font-bold text-neutral-900">{formatCurrency(savingsProgress.totalTarget - savingsProgress.totalDeposited)}</p>
+              <p className="text-lg font-bold text-neutral-900">{formatCurrency(Math.max(0, savingsProgress.totalTarget - savingsProgress.totalDeposited))}</p>
             </div>
           </div>
         </div>
@@ -290,8 +361,11 @@ export default function PaymentSchedule({
         const grossPaycheck = alloc.paycheckAmount / (1 - savings.percent / 100);
         const savingsInfo = getSavingsForPaycheck(alloc.payDate, grossPaycheck);
         const isEditingSavings = editingSavingsDate === dateStr;
-        const miscReserved = alloc.paycheckAmount - alloc.usedFunds;
-        const usedPercentage = (alloc.usedFunds / alloc.paycheckAmount) * 100;
+        // Include one-time bills in used funds calculation
+        const oneTimeBillsAmount = getOneTimeBillsTotal(alloc.payDate);
+        const totalUsedFunds = alloc.usedFunds + oneTimeBillsAmount;
+        const miscReserved = alloc.paycheckAmount - totalUsedFunds;
+        const usedPercentage = (totalUsedFunds / alloc.paycheckAmount) * 100;
         const availablePercentage = 100 - usedPercentage;
         const progressBarColor = getProgressBarColor(availablePercentage);
 
@@ -371,7 +445,7 @@ export default function PaymentSchedule({
                           type="number"
                           value={editingSavingsAmount}
                           onChange={(e) => setEditingSavingsAmount(e.target.value)}
-                          className="w-28 pl-7 pr-2 py-1.5 border border-neutral-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
+                          className="w-28 pl-7 pr-2 py-1.5 border border-neutral-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-green-500 bg-white text-neutral-900"
                           step="0.01"
                           min="0"
                           autoFocus
@@ -451,12 +525,17 @@ export default function PaymentSchedule({
               <div className="p-4 border-r border-neutral-200">
                 <p className="text-xs font-semibold text-neutral-500 uppercase tracking-wide mb-1">Used</p>
                 <p className="text-lg font-bold text-neutral-900">
-                  {formatCurrency(alloc.usedFunds)}
+                  {formatCurrency(totalUsedFunds)}
                 </p>
+                {oneTimeBillsAmount > 0 && (
+                  <p className="text-xs text-blue-600">
+                    incl. {formatCurrency(oneTimeBillsAmount)} one-time
+                  </p>
+                )}
               </div>
               <div className="p-4">
                 <p className="text-xs font-semibold text-neutral-500 uppercase tracking-wide mb-1">Remaining</p>
-                <p className="text-lg font-bold text-green-600">
+                <p className={`text-lg font-bold ${miscReserved >= 0 ? 'text-green-600' : 'text-red-600'}`}>
                   {formatCurrency(miscReserved)}
                 </p>
               </div>
@@ -482,6 +561,9 @@ export default function PaymentSchedule({
                 <table className="min-w-full">
                   <thead>
                     <tr className="bg-neutral-50 border-b border-neutral-200">
+                      <th className="px-3 py-3 text-center text-xs font-semibold text-neutral-500 uppercase tracking-wide w-12">
+                        Paid
+                      </th>
                       <th className="px-5 py-3 text-left text-xs font-semibold text-neutral-500 uppercase tracking-wide">
                         Bill
                       </th>
@@ -509,42 +591,82 @@ export default function PaymentSchedule({
                       const daysDiff = getDateDifference(dueDate, payDate);
                       const isLate = daysDiff > 0;
                       const uniqueKey = `${bill.name}-${bill.dueDate}-${alloc.payDate.toISOString()}`;
+                      const billKey = `${dateStr}-${bill.name}-${bill.dueDate}`;
+                      const isPaid = isBillPaid(dateStr, bill.name, bill.dueDate);
+                      const isAnimating = animatingBills.has(billKey);
 
-                      const rowClass = bill.isUnderfunded
-                        ? "bg-red-50 hover:bg-red-100"
-                        : bill.isCriticallyLate
-                          ? "bg-orange-50 hover:bg-orange-100"
-                          : "hover:bg-neutral-50";
+                      const rowClass = isPaid
+                        ? "bg-green-50/50"
+                        : bill.isUnderfunded
+                          ? "bg-red-50 hover:bg-red-100"
+                          : bill.isCriticallyLate
+                            ? "bg-orange-50 hover:bg-orange-100"
+                            : "hover:bg-neutral-50";
 
                       return (
                         <tr
                           key={uniqueKey}
                           className={`${rowClass} transition-colors`}
                         >
+                          <td className="px-3 py-4 whitespace-nowrap text-center">
+                            <button
+                              onClick={() => handleToggleBillPaid(dateStr, bill.name, bill.dueDate, isPaid)}
+                              className={`relative w-7 h-7 rounded-full border-2 flex items-center justify-center transition-all duration-300 ${
+                                isPaid
+                                  ? 'bg-green-500 border-green-500'
+                                  : 'border-neutral-300 hover:border-green-400 hover:bg-green-50'
+                              } ${isAnimating ? 'scale-110' : ''}`}
+                              title={isPaid ? "Mark as unpaid" : "Mark as paid"}
+                            >
+                              {isPaid && (
+                                <Check
+                                  className={`w-4 h-4 text-white transition-all duration-300 ${
+                                    isAnimating ? 'animate-bounce' : ''
+                                  }`}
+                                />
+                              )}
+                            </button>
+                          </td>
                           <td className="px-5 py-4 whitespace-nowrap">
                             <div className="flex items-center gap-2">
-                              <span className={`text-sm font-semibold ${bill.isUnderfunded ? 'text-red-900' : 'text-neutral-900'}`}>
+                              <span className={`text-sm font-semibold transition-all duration-300 ${
+                                isPaid
+                                  ? 'line-through text-neutral-400'
+                                  : bill.isUnderfunded
+                                    ? 'text-red-900'
+                                    : 'text-neutral-900'
+                              }`}>
                                 {bill.name}
                               </span>
                               {bill.billType === "recurring" && (
-                                <span className="px-2 py-0.5 text-xs font-semibold rounded bg-neutral-900 text-white uppercase tracking-wide">
+                                <span className={`px-2 py-0.5 text-xs font-semibold rounded uppercase tracking-wide ${
+                                  isPaid ? 'bg-neutral-300 text-neutral-500' : 'bg-neutral-900 text-white'
+                                }`}>
                                   Monthly
+                                </span>
+                              )}
+                              {isPaid && (
+                                <span className="px-2 py-0.5 text-xs font-semibold rounded bg-green-100 text-green-700 uppercase tracking-wide flex items-center gap-1">
+                                  <CheckCircle className="w-3 h-3" />
+                                  Paid
                                 </span>
                               )}
                             </div>
                           </td>
                           <td className="px-5 py-4 whitespace-nowrap text-right">
-                            <span className="text-sm font-semibold text-neutral-900">
+                            <span className={`text-sm font-semibold transition-all duration-300 ${
+                              isPaid ? 'line-through text-neutral-400' : 'text-neutral-900'
+                            }`}>
                               {formatCurrency(bill.paymentAmount)}
                             </span>
                           </td>
                           <td className="px-5 py-4 whitespace-nowrap text-right">
-                            <span className="text-sm text-neutral-600">
+                            <span className={`text-sm ${isPaid ? 'text-neutral-400' : 'text-neutral-600'}`}>
                               {bill.apr.toFixed(1)}%
                             </span>
                           </td>
                           <td className="px-5 py-4 whitespace-nowrap">
-                            <span className="text-sm text-neutral-600">
+                            <span className={`text-sm ${isPaid ? 'text-neutral-400' : 'text-neutral-600'}`}>
                               {new Date(bill.dueDate).toLocaleDateString("en-US", {
                                 month: "short",
                                 day: "numeric"
@@ -554,7 +676,12 @@ export default function PaymentSchedule({
                           <td className="px-5 py-4 whitespace-nowrap text-center">
                             <div className="flex flex-col items-center gap-1">
                               {/* Timing Status */}
-                              {bill.isCriticallyLate ? (
+                              {isPaid ? (
+                                <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded text-xs font-semibold bg-green-100 text-green-800">
+                                  <CheckCircle className="w-3 h-3" />
+                                  Complete
+                                </span>
+                              ) : bill.isCriticallyLate ? (
                                 <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded text-xs font-semibold bg-red-100 text-red-800">
                                   <AlertOctagon className="w-3 h-3" />
                                   {daysDiff}d late!
@@ -571,7 +698,7 @@ export default function PaymentSchedule({
                                 </span>
                               )}
                               {/* Underfunded Warning */}
-                              {bill.isUnderfunded && (
+                              {bill.isUnderfunded && !isPaid && (
                                 <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded text-xs font-semibold bg-red-500 text-white">
                                   <AlertTriangle className="w-3 h-3" />
                                   Underfunded
@@ -726,6 +853,72 @@ export default function PaymentSchedule({
         onAdd={handleAddBill}
         paycheckDate={selectedPaycheckDate}
       />
+
+      {/* Add One-Time Savings Modal */}
+      {showAddSavingsModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-lg shadow-elevated max-w-md w-full overflow-hidden">
+            <div className="bg-green-700 px-5 py-4 border-b-2 border-green-500">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="bg-green-500 p-1.5 rounded">
+                    <PiggyBank className="w-5 h-5 text-green-900" />
+                  </div>
+                  <h3 className="text-base font-bold text-white uppercase tracking-wide">
+                    Add Bonus Savings
+                  </h3>
+                </div>
+                <button
+                  onClick={() => {
+                    setShowAddSavingsModal(false);
+                    setOneTimeSavingsInput("");
+                  }}
+                  className="text-green-200 hover:text-white transition-colors"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+            </div>
+            <div className="p-5">
+              <p className="text-sm text-neutral-600 mb-4">
+                Add extra money you've saved outside of your regular paycheck savings.
+                This could be from bonuses, gifts, or spare change you've set aside.
+              </p>
+              <div className="relative">
+                <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-neutral-400" />
+                <input
+                  type="number"
+                  value={oneTimeSavingsInput}
+                  onChange={(e) => setOneTimeSavingsInput(e.target.value)}
+                  placeholder="Enter amount"
+                  className="w-full pl-10 pr-4 py-3 border border-neutral-300 rounded-lg text-lg focus:outline-none focus:ring-2 focus:ring-green-500 bg-white text-neutral-900"
+                  step="0.01"
+                  min="0"
+                  autoFocus
+                />
+              </div>
+            </div>
+            <div className="flex gap-3 p-5 bg-neutral-50 border-t border-neutral-200">
+              <button
+                onClick={() => {
+                  setShowAddSavingsModal(false);
+                  setOneTimeSavingsInput("");
+                }}
+                className="flex-1 py-2.5 px-4 bg-white border border-neutral-300 text-neutral-700 rounded-lg font-semibold hover:bg-neutral-100 transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleAddOneTimeSavings}
+                disabled={!oneTimeSavingsInput || parseFloat(oneTimeSavingsInput) <= 0}
+                className="flex-1 py-2.5 px-4 bg-green-600 text-white rounded-lg font-semibold hover:bg-green-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                Add Savings
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

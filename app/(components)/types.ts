@@ -55,3 +55,15 @@ export interface Bill {
     createdAt: string;
     updatedAt: string;
   }
+
+  export interface BillPayment {
+    id: string;
+    userId: string;
+    paycheckDate: string;  // The paycheck date this payment is for (YYYY-MM-DD)
+    billName: string;      // Name of the bill
+    billDueDate: string;   // Due date of the bill instance (YYYY-MM-DD)
+    isPaid: boolean;
+    paidAt: string;
+    createdAt: string;
+    updatedAt: string;
+  }
