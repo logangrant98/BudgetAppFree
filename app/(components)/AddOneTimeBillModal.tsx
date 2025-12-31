@@ -72,7 +72,7 @@ export default function AddOneTimeBillModal({
         </div>
 
         {/* Form */}
-        <form onSubmit={handleSubmit} className="p-5 space-y-4">
+        <form onSubmit={handleSubmit} className="p-4 sm:p-5 space-y-4 overflow-x-hidden">
           {/* Bill Name */}
           <div>
             <label className="block text-sm font-semibold text-neutral-700 mb-2">
@@ -112,7 +112,7 @@ export default function AddOneTimeBillModal({
           </div>
 
           {/* Due Date (Optional) */}
-          <div>
+          <div className="overflow-hidden">
             <label className="block text-sm font-semibold text-neutral-700 mb-2">
               <Calendar className="w-3 h-3 text-neutral-400 inline-block mr-1" />
               Due Date <span className="text-neutral-400 font-normal">(optional)</span>
@@ -121,7 +121,7 @@ export default function AddOneTimeBillModal({
               type="date"
               value={dueDate}
               onChange={(e) => setDueDate(e.target.value)}
-              className="w-full px-3 py-2.5 border border-neutral-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent text-sm bg-white text-neutral-900"
+              className="w-full max-w-full px-3 py-2.5 border border-neutral-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent text-sm bg-white text-neutral-900 box-border"
             />
           </div>
 

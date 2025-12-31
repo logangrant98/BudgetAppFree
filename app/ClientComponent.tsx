@@ -908,8 +908,8 @@ export default function BudgetPlanner() {
     doc.setTextColor(23, 23, 23);
     doc.text("Budget Planner Report", 15, 15);
 
-    // Yellow accent line
-    doc.setDrawColor(245, 158, 11);
+    // Brown/tan accent line (Carhartt style)
+    doc.setDrawColor(139, 90, 43);
     doc.setLineWidth(2);
     doc.line(15, 20, 75, 20);
 
@@ -921,21 +921,23 @@ export default function BudgetPlanner() {
     // =============== VISUAL DASHBOARD SECTION ===============
     const dashboardY = 38;
 
-    // Box 1: Income (Green)
-    doc.setFillColor(34, 197, 94); // Green
+    // Box 1: Income (Tan/Khaki - Carhartt style)
+    doc.setFillColor(210, 180, 140);
     doc.roundedRect(15, dashboardY, 55, 35, 3, 3, 'F');
     doc.setFontSize(9);
-    doc.setTextColor(255, 255, 255);
+    doc.setTextColor(60, 40, 20);
     doc.text("MONTHLY INCOME", 20, dashboardY + 10);
     doc.setFontSize(16);
+    doc.setTextColor(40, 25, 10);
     doc.setFont("helvetica", "bold");
     doc.text(`$${monthlyIncome.toFixed(0)}`, 20, dashboardY + 22);
     doc.setFont("helvetica", "normal");
     doc.setFontSize(8);
+    doc.setTextColor(80, 55, 30);
     doc.text(`$${yearlyIncome.toFixed(0)}/year`, 20, dashboardY + 30);
 
-    // Box 2: Bills (Red/Orange)
-    doc.setFillColor(239, 68, 68); // Red
+    // Box 2: Bills (Brown - Carhartt style)
+    doc.setFillColor(139, 90, 43);
     doc.roundedRect(77, dashboardY, 55, 35, 3, 3, 'F');
     doc.setFontSize(9);
     doc.setTextColor(255, 255, 255);
@@ -947,8 +949,8 @@ export default function BudgetPlanner() {
     doc.setFontSize(8);
     doc.text(`${bills.length} bills total`, 82, dashboardY + 30);
 
-    // Box 3: Savings Target (Blue)
-    doc.setFillColor(59, 130, 246); // Blue
+    // Box 3: Savings Target (Dark Brown - Carhartt style)
+    doc.setFillColor(101, 67, 33);
     doc.roundedRect(139, dashboardY, 55, 35, 3, 3, 'F');
     doc.setFontSize(9);
     doc.setTextColor(255, 255, 255);
@@ -975,14 +977,8 @@ export default function BudgetPlanner() {
     doc.setFillColor(229, 229, 229);
     doc.roundedRect(15, progressY + 3, 180, 8, 2, 2, 'F');
 
-    // Progress bar (color based on usage)
-    if (averageUsagePercentage <= 70) {
-      doc.setFillColor(34, 197, 94); // Green
-    } else if (averageUsagePercentage <= 90) {
-      doc.setFillColor(245, 158, 11); // Yellow
-    } else {
-      doc.setFillColor(239, 68, 68); // Red
-    }
+    // Progress bar (brown/tan)
+    doc.setFillColor(139, 90, 43);
     const usageWidth = Math.min(averageUsagePercentage, 100) * 1.8;
     doc.roundedRect(15, progressY + 3, usageWidth, 8, 2, 2, 'F');
 
@@ -996,8 +992,8 @@ export default function BudgetPlanner() {
     doc.setFillColor(229, 229, 229);
     doc.roundedRect(15, progressY + 23, 180, 8, 2, 2, 'F');
 
-    // Progress bar (green)
-    doc.setFillColor(34, 197, 94);
+    // Progress bar (dark brown)
+    doc.setFillColor(101, 67, 33);
     const savingsWidth = Math.min(savingsProgressPercent, 100) * 1.8;
     if (savingsWidth > 0) {
       doc.roundedRect(15, progressY + 23, savingsWidth, 8, 2, 2, 'F');
@@ -1006,9 +1002,9 @@ export default function BudgetPlanner() {
     // =============== SUMMARY STATS ===============
     const statsY = progressY + 42;
 
-    doc.setFillColor(250, 250, 250);
+    doc.setFillColor(250, 245, 235);
     doc.rect(15, statsY, 180, 25, 'F');
-    doc.setDrawColor(229, 229, 229);
+    doc.setDrawColor(210, 180, 140);
     doc.rect(15, statsY, 180, 25, 'S');
 
     // Stats grid
@@ -1031,7 +1027,6 @@ export default function BudgetPlanner() {
     doc.setFont("helvetica", "bold");
     doc.text(`$${avgPaycheck.toFixed(0)}`, 25, statsY + 18);
     doc.text(`$${avgBillsPerCheck.toFixed(0)}`, 75, statsY + 18);
-    doc.setTextColor(34, 197, 94);
     doc.text(`$${avgRemaining.toFixed(0)}`, 130, statsY + 18);
     doc.setFont("helvetica", "normal");
 
@@ -1052,16 +1047,7 @@ export default function BudgetPlanner() {
         `${b.apr.toFixed(2)}%`,
         new Date(b.dueDate).toLocaleDateString(),
         b.billType.charAt(0).toUpperCase() + b.billType.slice(1),
-        {
-          content: isLate ? "Late" : "On Time",
-          styles: {
-            textColor: (isLate ? [180, 83, 9] : [22, 163, 74]) as [
-              number,
-              number,
-              number
-            ],
-          },
-        },
+        isLate ? "Late" : "On Time",
       ];
     });
 
@@ -1095,8 +1081,8 @@ export default function BudgetPlanner() {
     doc.setTextColor(23, 23, 23);
     doc.text("Payment Schedule", 15, 15);
 
-    // Yellow accent line
-    doc.setDrawColor(245, 158, 11);
+    // Brown accent line (Carhartt style)
+    doc.setDrawColor(139, 90, 43);
     doc.setLineWidth(2);
     doc.line(15, 20, 55, 20);
 
