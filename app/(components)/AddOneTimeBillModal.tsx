@@ -114,17 +114,15 @@ export default function AddOneTimeBillModal({
           {/* Due Date (Optional) */}
           <div>
             <label className="block text-sm font-semibold text-neutral-700 mb-2">
+              <Calendar className="w-3 h-3 text-neutral-400 inline-block mr-1" />
               Due Date <span className="text-neutral-400 font-normal">(optional)</span>
             </label>
-            <div className="relative">
-              <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-neutral-400" />
-              <input
-                type="date"
-                value={dueDate}
-                onChange={(e) => setDueDate(e.target.value)}
-                className="w-full pl-10 pr-4 py-2.5 border border-neutral-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent text-sm bg-white text-neutral-900"
-              />
-            </div>
+            <input
+              type="date"
+              value={dueDate}
+              onChange={(e) => setDueDate(e.target.value)}
+              className="w-full px-3 py-2.5 border border-neutral-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent text-sm bg-white text-neutral-900"
+            />
           </div>
 
           {/* Actions */}
