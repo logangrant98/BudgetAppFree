@@ -1,6 +1,6 @@
 "use client";
 import React, { useState } from "react";
-import { Bill, OneTimeBill, AllocatedBill, PaycheckSavings, BillPayment, BillPaycheckAmount } from "./types";
+import { Bill, OneTimeBill, AllocatedBill, PaycheckSavings, BillPayment, BillPaycheckAmount, PaycheckAmountOverride } from "./types";
 import AddOneTimeBillModal from "./AddOneTimeBillModal";
 import '../../styles/globals.css';
 
@@ -59,6 +59,8 @@ interface PaymentScheduleProps {
   billPaycheckAmounts: BillPaycheckAmount[];
   onUpdateBillPaycheckAmount: (billName: string, billDueDate: string, paycheckDate: string, amount: number) => Promise<void>;
   onBillMoved?: (billInstanceId: string, paycheckDate: string) => void;
+  paycheckAmountOverrides: PaycheckAmountOverride[];
+  onUpdatePaycheckAmount: (sourceId: string, paycheckDate: string, amount: number) => Promise<void>;
 }
 
 const formatCurrency = (value: number): string =>
@@ -97,7 +99,9 @@ export default function PaymentSchedule({
   oneTimeSavingsTotal,
   billPaycheckAmounts,
   onUpdateBillPaycheckAmount,
-  onBillMoved
+  onBillMoved,
+  paycheckAmountOverrides,
+  onUpdatePaycheckAmount
 }: PaymentScheduleProps) {
 
   const [showSuggestions, setShowSuggestions] = useState(true);
@@ -116,6 +120,10 @@ export default function PaymentSchedule({
   const [editingBillAmountKey, setEditingBillAmountKey] = useState<string | null>(null);
   const [editingBillAmount, setEditingBillAmount] = useState<string>("");
   const [savingBillAmounts, setSavingBillAmounts] = useState<Set<string>>(new Set());
+  // State for editing paycheck amounts
+  const [editingPaycheckAmountKey, setEditingPaycheckAmountKey] = useState<string | null>(null);
+  const [editingPaycheckAmount, setEditingPaycheckAmount] = useState<string>("");
+  const [savingPaycheckAmounts, setSavingPaycheckAmounts] = useState<Set<string>>(new Set());
 
   const handleOpenAddModal = (payDate: Date) => {
     // Format date as YYYY-MM-DD for the modal
@@ -204,6 +212,45 @@ export default function PaymentSchedule({
       isCustom: false,
       isDeposited: false
     };
+  };
+
+  // Check if a paycheck has an amount override
+  const hasPaycheckAmountOverride = (sourceId: string | undefined, payDate: Date): boolean => {
+    if (!sourceId) return false;
+    const dateStr = payDate.toISOString().split('T')[0];
+    return paycheckAmountOverrides.some(o => o.sourceId === sourceId && o.paycheckDate === dateStr);
+  };
+
+  // Handle starting edit mode for paycheck amount
+  const handleStartEditPaycheckAmount = (sourceId: string, payDate: Date, currentGrossAmount: number) => {
+    const key = `${sourceId}-${payDate.toISOString().split('T')[0]}`;
+    setEditingPaycheckAmountKey(key);
+    setEditingPaycheckAmount(currentGrossAmount.toFixed(2));
+  };
+
+  // Handle saving edited paycheck amount
+  const handleSavePaycheckAmount = async (sourceId: string, payDate: Date) => {
+    const dateStr = payDate.toISOString().split('T')[0];
+    const key = `${sourceId}-${dateStr}`;
+    const amount = parseFloat(editingPaycheckAmount);
+    if (isNaN(amount) || amount <= 0) {
+      setEditingPaycheckAmountKey(null);
+      return;
+    }
+    setSavingPaycheckAmounts(prev => new Set(prev).add(key));
+    await onUpdatePaycheckAmount(sourceId, dateStr, amount);
+    setSavingPaycheckAmounts(prev => {
+      const next = new Set(prev);
+      next.delete(key);
+      return next;
+    });
+    setEditingPaycheckAmountKey(null);
+  };
+
+  // Handle canceling edit mode for paycheck amount
+  const handleCancelEditPaycheckAmount = () => {
+    setEditingPaycheckAmountKey(null);
+    setEditingPaycheckAmount("");
   };
 
   // Handle starting edit mode for savings
@@ -542,13 +589,77 @@ export default function PaymentSchedule({
             {/* Stats Grid */}
             <div className="grid grid-cols-3 border-b border-neutral-200">
               <div className="p-2 sm:p-4 border-r border-neutral-200">
-                <p className="text-xs font-semibold text-neutral-500 uppercase tracking-wide mb-1">
-                  Paycheck
-                  <span className="hidden sm:inline normal-case font-normal ml-1">(after {formatPercent(savings.percent)} savings)</span>
-                </p>
-                <p className="text-sm sm:text-lg font-bold text-neutral-900">
-                  {formatCurrency(alloc.paycheckAmount)}
-                </p>
+                {(() => {
+                  const paycheckKey = `${alloc.sourceId}-${dateStr}`;
+                  const isEditingPaycheck = editingPaycheckAmountKey === paycheckKey;
+                  const isSavingPaycheck = savingPaycheckAmounts.has(paycheckKey);
+                  const hasOverride = hasPaycheckAmountOverride(alloc.sourceId, alloc.payDate);
+
+                  return (
+                    <>
+                      <div className="flex items-center gap-1 mb-1">
+                        <p className="text-xs font-semibold text-neutral-500 uppercase tracking-wide">
+                          Gross Pay
+                        </p>
+                        {hasOverride && (
+                          <span className="text-xs bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded font-medium">
+                            Custom
+                          </span>
+                        )}
+                      </div>
+                      {isEditingPaycheck ? (
+                        <div className="flex items-center gap-1">
+                          <span className="text-neutral-400">$</span>
+                          <input
+                            type="number"
+                            value={editingPaycheckAmount}
+                            onChange={(e) => setEditingPaycheckAmount(e.target.value)}
+                            className="w-20 sm:w-24 px-1 py-0.5 text-sm border border-neutral-300 rounded focus:ring-1 focus:ring-primary-500 focus:border-primary-500"
+                            autoFocus
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter' && alloc.sourceId) {
+                                handleSavePaycheckAmount(alloc.sourceId, alloc.payDate);
+                              } else if (e.key === 'Escape') {
+                                handleCancelEditPaycheckAmount();
+                              }
+                            }}
+                          />
+                          <button
+                            onClick={() => alloc.sourceId && handleSavePaycheckAmount(alloc.sourceId, alloc.payDate)}
+                            disabled={isSavingPaycheck}
+                            className="p-1 text-green-600 hover:bg-green-50 rounded"
+                          >
+                            {isSavingPaycheck ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />}
+                          </button>
+                          <button
+                            onClick={handleCancelEditPaycheckAmount}
+                            className="p-1 text-red-600 hover:bg-red-50 rounded"
+                          >
+                            <X className="w-4 h-4" />
+                          </button>
+                        </div>
+                      ) : (
+                        <div className="flex items-center gap-1">
+                          <p className="text-sm sm:text-lg font-bold text-neutral-900">
+                            {formatCurrency(grossPaycheck)}
+                          </p>
+                          {alloc.sourceId && (
+                            <button
+                              onClick={() => handleStartEditPaycheckAmount(alloc.sourceId!, alloc.payDate, grossPaycheck)}
+                              className="p-1 text-neutral-400 hover:text-neutral-600 hover:bg-neutral-100 rounded"
+                              title="Edit paycheck amount"
+                            >
+                              <Edit3 className="w-3.5 h-3.5" />
+                            </button>
+                          )}
+                        </div>
+                      )}
+                      <p className="text-xs text-neutral-400 hidden sm:block">
+                        Net: {formatCurrency(alloc.paycheckAmount)}
+                      </p>
+                    </>
+                  );
+                })()}
               </div>
               <div className="p-2 sm:p-4 border-r border-neutral-200">
                 <p className="text-xs font-semibold text-neutral-500 uppercase tracking-wide mb-1">Used</p>
