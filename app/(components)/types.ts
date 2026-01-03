@@ -78,3 +78,13 @@ export interface Bill {
     createdAt: string;
     updatedAt: string;
   }
+
+  export interface PaycheckAmountOverride {
+    id: string;
+    userId: string;
+    sourceId: string;      // The income source this override is for
+    paycheckDate: string;  // The paycheck date (YYYY-MM-DD)
+    amount: number;        // Override gross paycheck amount
+    createdAt: string;
+    updatedAt: string;
+  }

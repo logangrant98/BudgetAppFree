@@ -11,19 +11,20 @@ datasource db {
 }
 
 model User {
-  id                  String               @id @default(cuid())
-  email               String               @unique
-  name                String
-  password            String
-  createdAt           DateTime             @default(now())
-  updatedAt           DateTime             @updatedAt
-  oneTimeBills        OneTimeBill[]
-  paycheckSavings     PaycheckSavings[]
-  billPayments        BillPayment[]
-  incomeSources       IncomeSource[]
-  bills               Bill[]
-  incomeSettings      IncomeSettings?
-  billPaycheckAmounts BillPaycheckAmount[]
+  id                      String                   @id @default(cuid())
+  email                   String                   @unique
+  name                    String
+  password                String
+  createdAt               DateTime                 @default(now())
+  updatedAt               DateTime                 @updatedAt
+  oneTimeBills            OneTimeBill[]
+  paycheckSavings         PaycheckSavings[]
+  billPayments            BillPayment[]
+  incomeSources           IncomeSource[]
+  bills                   Bill[]
+  incomeSettings          IncomeSettings?
+  billPaycheckAmounts     BillPaycheckAmount[]
+  paycheckAmountOverrides PaycheckAmountOverride[]
 }
 
 model IncomeSource {
@@ -128,6 +129,21 @@ model BillPaycheckAmount {
   user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([userId, billName, billDueDate, paycheckDate])
+  @@index([userId])
+  @@index([paycheckDate])
+}
+
+model PaycheckAmountOverride {
+  id           String   @id @default(cuid())
+  userId       String
+  sourceId     String   // The income source this override is for
+  paycheckDate String   // The paycheck date (YYYY-MM-DD)
+  amount       Float    // Override gross paycheck amount
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, sourceId, paycheckDate])
   @@index([userId])
   @@index([paycheckDate])
 }
