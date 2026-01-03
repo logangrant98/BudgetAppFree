@@ -614,7 +614,7 @@ export default function PaymentSchedule({
                             type="number"
                             value={editingPaycheckAmount}
                             onChange={(e) => setEditingPaycheckAmount(e.target.value)}
-                            className="w-20 sm:w-24 px-1 py-0.5 text-sm border border-neutral-300 rounded focus:ring-1 focus:ring-primary-500 focus:border-primary-500"
+                            className="w-20 sm:w-24 px-1 py-0.5 text-sm text-neutral-900 bg-white border border-neutral-300 rounded focus:ring-1 focus:ring-primary-500 focus:border-primary-500"
                             autoFocus
                             onKeyDown={(e) => {
                               if (e.key === 'Enter' && alloc.sourceId) {
