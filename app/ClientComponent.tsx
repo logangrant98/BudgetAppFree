@@ -1097,25 +1097,6 @@ export default function BudgetPlanner() {
       );
       scheduleY += 6;
 
-      doc.setFontSize(9);
-      doc.setTextColor(115, 115, 115);
-      const usagePercent = (
-        (alloc.usedFunds / alloc.paycheckAmount) *
-        100
-      ).toFixed(1);
-      doc.text(
-        `Amount: $${alloc.paycheckAmount.toFixed(
-          2
-        )} | Used: $${alloc.usedFunds.toFixed(
-          2
-        )} (${usagePercent}%) | Available: $${(
-          alloc.paycheckAmount - alloc.usedFunds
-        ).toFixed(2)}`,
-        15,
-        scheduleY + 4
-      );
-      scheduleY += 10;
-
       // Get savings info for this paycheck
       const paycheckDateStr = alloc.payDate.toISOString().split('T')[0];
       const grossPaycheck = alloc.paycheckAmount / (1 - income.miscPercent / 100);
@@ -1123,17 +1104,42 @@ export default function BudgetPlanner() {
       const savingsAmount = customSavings ? customSavings.amount : getDefaultSavingsForPaycheck(grossPaycheck);
       const savingsDeposited = customSavings?.isDeposited || false;
 
-      // Build table rows - savings first, then bills
+      // Calculate totals
+      const totalUsed = alloc.usedFunds + savingsAmount;
+      const available = alloc.paycheckAmount - alloc.usedFunds; // Free money after bills (savings already deducted from paycheck)
+
+      doc.setFontSize(9);
+      doc.setTextColor(115, 115, 115);
+
+      // Show different format based on whether there's savings
+      if (savingsAmount > 0) {
+        doc.text(
+          `Total: $${grossPaycheck.toFixed(2)} | Savings: $${savingsAmount.toFixed(2)} | Bills: $${alloc.usedFunds.toFixed(2)} | Available: $${available.toFixed(2)}`,
+          15,
+          scheduleY + 4
+        );
+      } else {
+        doc.text(
+          `Total: $${grossPaycheck.toFixed(2)} | Bills: $${alloc.usedFunds.toFixed(2)} | Available: $${available.toFixed(2)}`,
+          15,
+          scheduleY + 4
+        );
+      }
+      scheduleY += 10;
+
+      // Build table rows - savings first (if > 0), then bills
       const tableRows: (string | { content: string; styles?: Record<string, unknown> })[][] = [];
 
-      // Add savings row (highlighted in green)
-      tableRows.push([
-        { content: "💰 Savings Deposit", styles: { fontStyle: 'bold', textColor: [22, 101, 52] } },
-        { content: `$${savingsAmount.toFixed(2)}`, styles: { fontStyle: 'bold', textColor: [22, 101, 52] } },
-        { content: "—", styles: { textColor: [115, 115, 115] } },
-        { content: "Transfer", styles: { textColor: [22, 101, 52] } },
-        { content: savingsDeposited ? "✓ Deposited" : "Pending", styles: { fontStyle: 'bold', textColor: savingsDeposited ? [22, 101, 52] : [202, 138, 4] } },
-      ]);
+      // Add savings row only if savings amount > 0
+      if (savingsAmount > 0) {
+        tableRows.push([
+          { content: "Savings Deposit", styles: { fontStyle: 'bold', textColor: [22, 101, 52] } },
+          { content: `$${savingsAmount.toFixed(2)}`, styles: { fontStyle: 'bold', textColor: [22, 101, 52] } },
+          { content: "-", styles: { textColor: [115, 115, 115] } },
+          { content: "Transfer", styles: { textColor: [22, 101, 52] } },
+          { content: savingsDeposited ? "Deposited" : "Pending", styles: { fontStyle: 'bold', textColor: savingsDeposited ? [22, 101, 52] : [202, 138, 4] } },
+        ]);
+      }
 
       // Add bill rows
       alloc.bills.forEach((b) => {
@@ -1171,8 +1177,8 @@ export default function BudgetPlanner() {
           fillColor: [250, 250, 250],
         },
         didParseCell: function(data) {
-          // Highlight savings row with green background
-          if (data.row.index === 0 && data.section === 'body') {
+          // Highlight savings row with green background (only if savings exists)
+          if (savingsAmount > 0 && data.row.index === 0 && data.section === 'body') {
             data.cell.styles.fillColor = [220, 252, 231]; // green-100
           }
         },
