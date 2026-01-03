@@ -1,6 +1,6 @@
 "use client";
-import React, { useState } from "react";
-import { Bill, OneTimeBill, AllocatedBill, PaycheckSavings, BillPayment, BillPaycheckAmount, PaycheckAmountOverride } from "./types";
+import React, { useState, useMemo } from "react";
+import { Bill, OneTimeBill, AllocatedBill, PaycheckSavings, BillPayment, BillPaycheckAmount, CreditCard, CreditCardPayment, PaycheckAmountOverride } from "./types";
 import AddOneTimeBillModal from "./AddOneTimeBillModal";
 import '../../styles/globals.css';
 
@@ -21,7 +21,10 @@ import {
   Check,
   X,
   TrendingUp,
-  Loader2
+  Loader2,
+  CreditCard as CreditCardIcon,
+  ChevronRight,
+  Zap
 } from "lucide-react";
 
 interface SuggestedChange {
@@ -59,6 +62,11 @@ interface PaymentScheduleProps {
   billPaycheckAmounts: BillPaycheckAmount[];
   onUpdateBillPaycheckAmount: (billName: string, billDueDate: string, paycheckDate: string, amount: number) => Promise<void>;
   onBillMoved?: (billInstanceId: string, paycheckDate: string) => void;
+  // Credit card props
+  creditCards: CreditCard[];
+  creditCardPayments: CreditCardPayment[];
+  onToggleCreditCardPayment: (creditCardId: string, paycheckDate: string, amount: number, isPaid: boolean, extraPayment?: number) => Promise<void>;
+  onUpdateCreditCardBalance: (cardId: string, balance: number) => Promise<void>;
   paycheckAmountOverrides: PaycheckAmountOverride[];
   onUpdatePaycheckAmount: (sourceId: string, paycheckDate: string, amount: number) => Promise<void>;
 }
@@ -100,6 +108,10 @@ export default function PaymentSchedule({
   billPaycheckAmounts,
   onUpdateBillPaycheckAmount,
   onBillMoved,
+  creditCards,
+  creditCardPayments,
+  onToggleCreditCardPayment,
+  onUpdateCreditCardBalance,
   paycheckAmountOverrides,
   onUpdatePaycheckAmount
 }: PaymentScheduleProps) {
@@ -120,6 +132,14 @@ export default function PaymentSchedule({
   const [editingBillAmountKey, setEditingBillAmountKey] = useState<string | null>(null);
   const [editingBillAmount, setEditingBillAmount] = useState<string>("");
   const [savingBillAmounts, setSavingBillAmounts] = useState<Set<string>>(new Set());
+  // Credit card state
+  const [creditCardsExpanded, setCreditCardsExpanded] = useState<Set<string>>(new Set());
+  const [loadingCreditCardPayments, setLoadingCreditCardPayments] = useState<Set<string>>(new Set());
+  const [editingCreditCardBalance, setEditingCreditCardBalance] = useState<string | null>(null);
+  const [editingBalanceAmount, setEditingBalanceAmount] = useState<string>("");
+  const [savingBalances, setSavingBalances] = useState<Set<string>>(new Set());
+  const [editingExtraPayment, setEditingExtraPayment] = useState<string | null>(null);
+  const [extraPaymentAmount, setExtraPaymentAmount] = useState<string>("");
   // State for editing paycheck amounts
   const [editingPaycheckAmountKey, setEditingPaycheckAmountKey] = useState<string | null>(null);
   const [editingPaycheckAmount, setEditingPaycheckAmount] = useState<string>("");
@@ -349,6 +369,110 @@ export default function PaymentSchedule({
   const handleCancelEditBillAmount = () => {
     setEditingBillAmountKey(null);
     setEditingBillAmount("");
+  };
+
+  // Credit card helper functions
+  const toggleCreditCardsExpanded = (paycheckDate: string) => {
+    setCreditCardsExpanded(prev => {
+      const next = new Set(prev);
+      if (next.has(paycheckDate)) {
+        next.delete(paycheckDate);
+      } else {
+        next.add(paycheckDate);
+      }
+      return next;
+    });
+  };
+
+  // Check if a credit card payment is made for a paycheck
+  const isCreditCardPaid = (creditCardId: string, paycheckDate: string): boolean => {
+    return creditCardPayments?.some(
+      p => p.creditCardId === creditCardId && p.paycheckDate === paycheckDate && p.isPaid
+    ) || false;
+  };
+
+  // Get credit card payment details for a paycheck
+  const getCreditCardPaymentDetails = (creditCardId: string, paycheckDate: string) => {
+    return creditCardPayments?.find(
+      p => p.creditCardId === creditCardId && p.paycheckDate === paycheckDate
+    );
+  };
+
+  // Calculate projected balance for a credit card at a given paycheck
+  const getProjectedBalance = (card: CreditCard, paycheckDate: string): number => {
+    if (!creditCardPayments) return card.balance;
+
+    // Get all payments for this card up to and including this paycheck
+    const relevantPayments = creditCardPayments
+      .filter(p => p.creditCardId === card.id && p.isPaid && p.paycheckDate <= paycheckDate)
+      .sort((a, b) => a.paycheckDate.localeCompare(b.paycheckDate));
+
+    // Calculate remaining balance after all payments
+    let balance = card.balance;
+    for (const payment of relevantPayments) {
+      if (payment.newBalance !== undefined && payment.newBalance !== null) {
+        balance = payment.newBalance;
+      } else {
+        balance = Math.max(0, balance - payment.amount);
+      }
+    }
+
+    return balance;
+  };
+
+  // Handle credit card payment toggle
+  const handleToggleCreditCardPayment = async (
+    creditCardId: string,
+    paycheckDate: string,
+    amount: number,
+    currentlyPaid: boolean,
+    extraPayment?: number
+  ) => {
+    const paymentKey = `${creditCardId}-${paycheckDate}`;
+    setLoadingCreditCardPayments(prev => new Set(prev).add(paymentKey));
+
+    try {
+      await onToggleCreditCardPayment(creditCardId, paycheckDate, amount, !currentlyPaid, extraPayment);
+    } finally {
+      setLoadingCreditCardPayments(prev => {
+        const next = new Set(prev);
+        next.delete(paymentKey);
+        return next;
+      });
+    }
+  };
+
+  // Handle balance update
+  const handleSaveBalance = async (cardId: string) => {
+    const balance = parseFloat(editingBalanceAmount);
+    if (!isNaN(balance) && balance >= 0) {
+      setSavingBalances(prev => new Set(prev).add(cardId));
+      try {
+        await onUpdateCreditCardBalance(cardId, balance);
+      } finally {
+        setSavingBalances(prev => {
+          const next = new Set(prev);
+          next.delete(cardId);
+          return next;
+        });
+      }
+    }
+    setEditingCreditCardBalance(null);
+    setEditingBalanceAmount("");
+  };
+
+  // Get total credit card payment amount for a paycheck
+  const getCreditCardTotalForPaycheck = (paycheckDate: string): number => {
+    if (!creditCards) return 0;
+    return creditCards.reduce((total, card) => {
+      const payment = getCreditCardPaymentDetails(card.id, paycheckDate);
+      if (payment && !payment.isPaid) {
+        return total + payment.amount;
+      } else if (!payment) {
+        return total + card.recommendedPayment;
+      }
+      return total;
+    }, 0);
   };
 
   // Calculate total savings progress
@@ -1065,6 +1189,293 @@ export default function PaymentSchedule({
                         </tr>
                       );
                     })}
+                  {/* Credit Cards Section */}
+                  {creditCards && creditCards.length > 0 && (
+                    <>
+                      {/* Credit Cards Header Row */}
+                      <tr className="bg-blue-50 border-t-2 border-blue-200">
+                        <td className="px-3 py-3 whitespace-nowrap text-center">
+                          <button
+                            onClick={() => toggleCreditCardsExpanded(dateStr)}
+                            className="w-7 h-7 rounded-full bg-blue-100 border-2 border-blue-300 flex items-center justify-center hover:bg-blue-200 transition-colors"
+                          >
+                            <ChevronRight
+                              className={`w-4 h-4 text-blue-600 transition-transform ${
+                                creditCardsExpanded.has(dateStr) ? 'rotate-90' : ''
+                              }`}
+                            />
+                          </button>
+                        </td>
+                        <td className="px-5 py-3 whitespace-nowrap" colSpan={2}>
+                          <div className="flex items-center gap-2">
+                            <CreditCardIcon className="w-4 h-4 text-blue-600" />
+                            <span className="text-sm font-bold text-blue-800">Credit Cards</span>
+                            <span className="px-2 py-0.5 text-xs font-semibold rounded bg-blue-200 text-blue-800 uppercase tracking-wide">
+                              {creditCards.length} {creditCards.length === 1 ? 'card' : 'cards'}
+                            </span>
+                          </div>
+                        </td>
+                        <td className="px-5 py-3 whitespace-nowrap text-right">
+                          <span className="text-sm font-semibold text-blue-800">
+                            {formatCurrency(getCreditCardTotalForPaycheck(dateStr))}
+                          </span>
+                        </td>
+                        <td className="px-5 py-3 whitespace-nowrap">
+                          <span className="text-xs text-blue-600">Total Payments</span>
+                        </td>
+                        <td className="px-5 py-3 whitespace-nowrap text-center">
+                          {/* Status badge showing total cards paid */}
+                          {(() => {
+                            const paidCount = creditCards.filter(c => isCreditCardPaid(c.id, dateStr)).length;
+                            if (paidCount === creditCards.length) {
+                              return (
+                                <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded text-xs font-semibold bg-green-100 text-green-800">
+                                  <CheckCircle className="w-3 h-3" />
+                                  All Paid
+                                </span>
+                              );
+                            } else if (paidCount > 0) {
+                              return (
+                                <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded text-xs font-semibold bg-blue-100 text-blue-800">
+                                  {paidCount}/{creditCards.length} Paid
+                                </span>
+                              );
+                            }
+                            return (
+                              <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded text-xs font-semibold bg-yellow-100 text-yellow-800">
+                                <Clock className="w-3 h-3" />
+                                Pending
+                              </span>
+                            );
+                          })()}
+                        </td>
+                        <td className="px-5 py-3 whitespace-nowrap text-center">
+                          <button
+                            onClick={() => toggleCreditCardsExpanded(dateStr)}
+                            className="text-xs text-blue-600 hover:text-blue-800 font-medium"
+                          >
+                            {creditCardsExpanded.has(dateStr) ? 'Collapse' : 'Expand'}
+                          </button>
+                        </td>
+                      </tr>
+                      {/* Individual Credit Card Rows */}
+                      {creditCardsExpanded.has(dateStr) && creditCards.map((card) => {
+                        const isPaid = isCreditCardPaid(card.id, dateStr);
+                        const paymentDetails = getCreditCardPaymentDetails(card.id, dateStr);
+                        const paymentAmount = paymentDetails?.amount || card.recommendedPayment;
+                        const projectedBalance = getProjectedBalance(card, dateStr);
+                        const newBalanceAfterPayment = Math.max(0, projectedBalance - paymentAmount);
+                        const paymentKey = `${card.id}-${dateStr}`;
+                        const isLoading = loadingCreditCardPayments.has(paymentKey);
+                        const balanceEditKey = `${card.id}-${dateStr}`;
+                        const isEditingBalance = editingCreditCardBalance === balanceEditKey;
+                        const isEditingExtra = editingExtraPayment === paymentKey;
+
+                        return (
+                          <tr
+                            key={`cc-${card.id}-${dateStr}`}
+                            className={`${isPaid ? 'bg-green-50/50' : 'bg-blue-50/30 hover:bg-blue-50/50'} transition-colors border-l-4 border-blue-300`}
+                          >
+                            <td className="px-3 py-4 whitespace-nowrap text-center">
+                              {isLoading ? (
+                                <div className="w-7 h-7 flex items-center justify-center">
+                                  <Loader2 className="w-5 h-5 text-blue-500 animate-spin" />
+                                </div>
+                              ) : (
+                                <button
+                                  onClick={() => handleToggleCreditCardPayment(
+                                    card.id,
+                                    dateStr,
+                                    paymentAmount,
+                                    isPaid,
+                                    isEditingExtra ? parseFloat(extraPaymentAmount) || 0 : 0
+                                  )}
+                                  className={`relative w-7 h-7 rounded-full border-2 flex items-center justify-center transition-all duration-300 ${
+                                    isPaid
+                                      ? 'bg-green-500 border-green-500'
+                                      : 'border-blue-300 hover:border-blue-400 hover:bg-blue-100'
+                                  }`}
+                                  title={isPaid ? "Mark as unpaid" : "Mark as paid"}
+                                >
+                                  {isPaid && <Check className="w-4 h-4 text-white" />}
+                                </button>
+                              )}
+                            </td>
+                            <td className="px-5 py-4 whitespace-nowrap">
+                              <div className="flex flex-col gap-1">
+                                <div className="flex items-center gap-2">
+                                  <CreditCardIcon className={`w-4 h-4 ${isPaid ? 'text-green-500' : 'text-blue-500'}`} />
+                                  <span className={`text-sm font-semibold ${isPaid ? 'line-through text-neutral-400' : 'text-neutral-900'}`}>
+                                    {card.name}
+                                  </span>
+                                  {isPaid && (
+                                    <span className="px-2 py-0.5 text-xs font-semibold rounded bg-green-100 text-green-700 uppercase tracking-wide flex items-center gap-1">
+                                      <CheckCircle className="w-3 h-3" />
+                                      Paid
+                                    </span>
+                                  )}
+                                </div>
+                                {/* Balance display */}
+                                <div className="flex items-center gap-2 text-xs">
+                                  {isEditingBalance ? (
+                                    <div className="flex items-center gap-1">
+                                      <span className="text-neutral-500">Balance:</span>
+                                      <div className="relative">
+                                        <DollarSign className="absolute left-1.5 top-1/2 -translate-y-1/2 w-3 h-3 text-neutral-400" />
+                                        <input
+                                          type="number"
+                                          value={editingBalanceAmount}
+                                          onChange={(e) => setEditingBalanceAmount(e.target.value)}
+                                          className="w-20 pl-5 pr-1 py-0.5 border border-blue-300 rounded text-xs focus:outline-none focus:ring-1 focus:ring-blue-500"
+                                          step="0.01"
+                                          min="0"
+                                          autoFocus
+                                          onKeyDown={(e) => {
+                                            if (e.key === 'Enter') handleSaveBalance(card.id);
+                                            else if (e.key === 'Escape') {
+                                              setEditingCreditCardBalance(null);
+                                              setEditingBalanceAmount("");
+                                            }
+                                          }}
+                                        />
+                                      </div>
+                                      <button
+                                        onClick={() => handleSaveBalance(card.id)}
+                                        className="p-0.5 bg-green-500 text-white rounded hover:bg-green-600"
+                                        disabled={savingBalances.has(card.id)}
+                                      >
+                                        {savingBalances.has(card.id) ? (
+                                          <Loader2 className="w-3 h-3 animate-spin" />
+                                        ) : (
+                                          <Check className="w-3 h-3" />
+                                        )}
+                                      </button>
+                                      <button
+                                        onClick={() => {
+                                          setEditingCreditCardBalance(null);
+                                          setEditingBalanceAmount("");
+                                        }}
+                                        className="p-0.5 bg-neutral-200 text-neutral-600 rounded hover:bg-neutral-300"
+                                      >
+                                        <X className="w-3 h-3" />
+                                      </button>
+                                    </div>
+                                  ) : (
+                                    <button
+                                      onClick={() => {
+                                        setEditingCreditCardBalance(balanceEditKey);
+                                        setEditingBalanceAmount(projectedBalance.toString());
+                                      }}
+                                      className="group flex items-center gap-1 hover:bg-blue-100 px-1 py-0.5 rounded cursor-pointer"
+                                      title="Click to update balance"
+                                    >
+                                      <span className="text-neutral-500">Balance:</span>
+                                      <span className={`font-medium ${isPaid ? 'text-green-600' : 'text-blue-700'}`}>
+                                        {formatCurrency(isPaid && paymentDetails?.newBalance !== undefined ? paymentDetails.newBalance : projectedBalance)}
+                                      </span>
+                                      <Edit3 className="w-3 h-3 text-blue-400 opacity-0 group-hover:opacity-100" />
+                                    </button>
+                                  )}
+                                  {isPaid && paymentDetails?.newBalance !== undefined && (
+                                    <span className="text-green-600 font-medium">
+                                      (was {formatCurrency(projectedBalance + paymentAmount)})
+                                    </span>
+                                  )}
+                                </div>
+                              </div>
+                            </td>
+                            <td className="px-5 py-4 whitespace-nowrap text-right">
+                              <div className="flex flex-col items-end gap-1">
+                                <span className={`text-sm font-semibold ${isPaid ? 'line-through text-neutral-400' : 'text-neutral-900'}`}>
+                                  {formatCurrency(paymentAmount)}
+                                </span>
+                                {!isPaid && (
+                                  <div className="flex items-center gap-1">
+                                    {isEditingExtra ? (
+                                      <div className="flex items-center gap-1">
+                                        <span className="text-xs text-neutral-500">+</span>
+                                        <div className="relative">
+                                          <DollarSign className="absolute left-1 top-1/2 -translate-y-1/2 w-2.5 h-2.5 text-neutral-400" />
+                                          <input
+                                            type="number"
+                                            value={extraPaymentAmount}
+                                            onChange={(e) => setExtraPaymentAmount(e.target.value)}
+                                            className="w-16 pl-4 pr-1 py-0.5 border border-green-300 rounded text-xs focus:outline-none focus:ring-1 focus:ring-green-500"
+                                            step="0.01"
+                                            min="0"
+                                            placeholder="Extra"
+                                            autoFocus
+                                            onKeyDown={(e) => {
+                                              if (e.key === 'Escape') {
+                                                setEditingExtraPayment(null);
+                                                setExtraPaymentAmount("");
+                                              }
+                                            }}
+                                          />
+                                        </div>
+                                        <button
+                                          onClick={() => {
+                                            setEditingExtraPayment(null);
+                                            setExtraPaymentAmount("");
+                                          }}
+                                          className="p-0.5 text-neutral-400 hover:text-neutral-600"
+                                        >
+                                          <X className="w-3 h-3" />
+                                        </button>
+                                      </div>
+                                    ) : (
+                                      <button
+                                        onClick={() => {
+                                          setEditingExtraPayment(paymentKey);
+                                          setExtraPaymentAmount("");
+                                        }}
+                                        className="flex items-center gap-1 text-xs text-green-600 hover:text-green-700 font-medium"
+                                        title="Add extra payment (snowball)"
+                                      >
+                                        <Zap className="w-3 h-3" />
+                                        Extra
+                                      </button>
+                                    )}
+                                  </div>
+                                )}
+                              </div>
+                            </td>
+                            <td className="px-5 py-4 whitespace-nowrap text-right">
+                              <span className={`text-sm ${isPaid ? 'text-neutral-400' : 'text-neutral-600'}`}>
+                                {card.apr.toFixed(1)}%
+                              </span>
+                            </td>
+                            <td className="px-5 py-4 whitespace-nowrap">
+                              <span className={`text-sm ${isPaid ? 'text-neutral-400' : 'text-neutral-600'}`}>
+                                {card.dueDate}{['1', '21', '31'].includes(card.dueDate) ? 'st' : ['2', '22'].includes(card.dueDate) ? 'nd' : ['3', '23'].includes(card.dueDate) ? 'rd' : 'th'}
+                              </span>
+                            </td>
+                            <td className="px-5 py-4 whitespace-nowrap text-center">
+                              {isPaid ? (
+                                <div className="flex flex-col items-center gap-1">
+                                  <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded text-xs font-semibold bg-green-100 text-green-800">
+                                    <CheckCircle className="w-3 h-3" />
+                                    Paid
+                                  </span>
+                                  <span className="text-xs text-green-600 font-medium">
+                                    New: {formatCurrency(paymentDetails?.newBalance || newBalanceAfterPayment)}
+                                  </span>
+                                </div>
+                              ) : (
+                                <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded text-xs font-semibold bg-blue-100 text-blue-800">
+                                  <Clock className="w-3 h-3" />
+                                  Due
+                                </span>
+                              )}
+                            </td>
+                            <td className="px-5 py-4 whitespace-nowrap text-center">
+                              {/* Empty - no move actions for credit cards */}
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </>
+                  )}
                   {/* One-Time Bills - integrated into the same table */}
                   {getOneTimeBillsForPaycheck(alloc.payDate).map((bill) => {
                         const isLoading = loadingOneTimeBills.has(bill.id);

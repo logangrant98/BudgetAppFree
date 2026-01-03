@@ -1,9 +1,10 @@
 "use client";
 import React, { useState, useMemo, useEffect } from "react";
-import { Income, IncomeSource, Bill, OneTimeBill, AllocatedBill, PaycheckSavings, BillPayment, BillPaycheckAmount, PaycheckAmountOverride } from "./(components)/types";
+import { Income, IncomeSource, Bill, OneTimeBill, AllocatedBill, PaycheckSavings, BillPayment, BillPaycheckAmount, CreditCard, CreditCardPayment, PaycheckAmountOverride } from "./(components)/types";
 import IncomeForm from "./(components)/IncomeForm";
 import BillForm from "./(components)/BillForm";
 import BillList from "./(components)/BillList/BillList";
+import CreditCardList from "./(components)/CreditCardList";
 import PaymentSchedule from "./(components)/PaymentSchedule";
 import {
   Download,
@@ -57,6 +58,9 @@ export default function BudgetPlanner() {
   const [isSavingIncome, setIsSavingIncome] = useState(false);
   // Track manual bill-to-paycheck assignments (when user moves bills)
   const [billAssignments, setBillAssignments] = useState<Record<string, string>>({});
+  // Credit card state
+  const [creditCards, setCreditCards] = useState<CreditCard[]>([]);
+  const [creditCardPayments, setCreditCardPayments] = useState<CreditCardPayment[]>([]);
   const { user, logout } = useAuth();
 
   // Load bill assignments from localStorage
@@ -185,6 +189,32 @@ export default function BudgetPlanner() {
       }
     };
 
+    const fetchCreditCards = async () => {
+      if (!user) return;
+      try {
+        const response = await fetch('/api/credit-cards');
+        if (response.ok) {
+          const data = await response.json();
+          setCreditCards(data);
+        }
+      } catch (error) {
+        console.error('Failed to fetch credit cards:', error);
+      }
+    };
+
+    const fetchCreditCardPayments = async () => {
+      if (!user) return;
+      try {
+        const response = await fetch('/api/credit-card-payments');
+        if (response.ok) {
+          const data = await response.json();
+          setCreditCardPayments(data);
+        }
+      } catch (error) {
+        console.error('Failed to fetch credit card payments:', error);
+      }
+    };
+
     const fetchPaycheckAmountOverrides = async () => {
       if (!user) return;
       try {
@@ -210,6 +240,8 @@ export default function BudgetPlanner() {
     fetchPaycheckSavings();
     fetchBillPayments();
     fetchBillPaycheckAmounts();
+    fetchCreditCards();
+    fetchCreditCardPayments();
     fetchPaycheckAmountOverrides();
   }, [user]);
 
@@ -385,6 +417,112 @@ export default function BudgetPlanner() {
       }
     } catch (error) {
       console.error('Failed to update bill paycheck amount:', error);
+    }
+  };
+
+  // Handler to add a credit card to database
+  const handleAddCreditCard = async (card: Omit<CreditCard, 'id' | 'userId' | 'createdAt' | 'updatedAt'>): Promise<CreditCard | null> => {
+    if (!user) return null;
+    try {
+      const response = await fetch('/api/credit-cards', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(card),
+      });
+      if (response.ok) {
+        const savedCard = await response.json();
+        setCreditCards((prev) => [...prev, savedCard]);
+        return savedCard;
+      } else if (response.status === 409) {
+        console.warn('A credit card with this name already exists');
+        return null;
+      }
+      throw new Error('Failed to add credit card');
+    } catch (error) {
+      console.error('Failed to add credit card:', error);
+      return null;
+    }
+  };
+
+  // Handler to update a credit card (including balance updates)
+  const handleUpdateCreditCard = async (cardId: string, updates: Partial<CreditCard>) => {
+    if (!user) return;
+    try {
+      const response = await fetch(`/api/credit-cards/${cardId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(updates),
+      });
+      if (response.ok) {
+        const updatedCard = await response.json();
+        setCreditCards((prev) => prev.map((c) => (c.id === cardId ? updatedCard : c)));
+      }
+    } catch (error) {
+      console.error('Failed to update credit card:', error);
+    }
+  };
+
+  // Handler to delete a credit card
+  const handleDeleteCreditCard = async (cardId: string) => {
+    if (!user) return;
+    try {
+      const response = await fetch(`/api/credit-cards/${cardId}`, {
+        method: 'DELETE',
+      });
+      if (response.ok) {
+        setCreditCards((prev) => prev.filter((c) => c.id !== cardId));
+      }
+    } catch (error) {
+      console.error('Failed to delete credit card:', error);
+    }
+  };
+
+  // Handler to toggle credit card payment (mark as paid/unpaid)
+  const handleToggleCreditCardPayment = async (
+    creditCardId: string,
+    paycheckDate: string,
+    amount: number,
+    isPaid: boolean,
+    extraPayment?: number
+  ) => {
+    if (!user) return;
+    try {
+      const response = await fetch('/api/credit-card-payments', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          creditCardId,
+          paycheckDate,
+          amount,
+          isPaid,
+          extraPayment
+        }),
+      });
+      if (response.ok) {
+        const payment = await response.json();
+        setCreditCardPayments((prev) => {
+          const existingIndex = prev.findIndex(
+            p => p.creditCardId === creditCardId && p.paycheckDate === paycheckDate
+          );
+          if (existingIndex >= 0) {
+            const newPayments = [...prev];
+            newPayments[existingIndex] = payment;
+            return newPayments;
+          }
+          return [...prev, payment];
+        });
+
+        // Update credit card balance if payment was made
+        if (isPaid && payment.newBalance !== undefined) {
+          setCreditCards((prev) =>
+            prev.map((c) =>
+              c.id === creditCardId ? { ...c, balance: payment.newBalance } : c
+            )
+          );
+        }
+      }
+    } catch (error) {
+      console.error('Failed to toggle credit card payment:', error);
     }
   };
 
@@ -1509,12 +1647,20 @@ export default function BudgetPlanner() {
             <BillForm
               setBillsAction={setBills}
               onAddBill={user ? handleAddBill : undefined}
+              onAddCreditCard={user ? handleAddCreditCard : undefined}
             />
           </aside>
 
           {/* Main Content Area - Hidden on mobile when viewing budget */}
           <section className={`lg:flex-1 space-y-6 ${mobileTab === 'budget' ? 'hidden lg:block' : ''}`}>
             <BillList bills={bills} setBillsAction={setBills} onDeleteBill={handleDeleteBill} onEditBill={handleEditBill} />
+            {creditCards.length > 0 && (
+              <CreditCardList
+                creditCards={creditCards}
+                onUpdateCreditCard={handleUpdateCreditCard}
+                onDeleteCreditCard={handleDeleteCreditCard}
+              />
+            )}
             <PaymentSchedule
               schedule={schedule}
               setScheduleAction={setSchedule}
@@ -1534,6 +1680,10 @@ export default function BudgetPlanner() {
               billPaycheckAmounts={billPaycheckAmounts}
               onUpdateBillPaycheckAmount={handleUpdateBillPaycheckAmount}
               onBillMoved={saveBillAssignment}
+              creditCards={creditCards}
+              creditCardPayments={creditCardPayments}
+              onToggleCreditCardPayment={handleToggleCreditCardPayment}
+              onUpdateCreditCardBalance={(cardId, balance) => handleUpdateCreditCard(cardId, { balance })}
               paycheckAmountOverrides={paycheckAmountOverrides}
               onUpdatePaycheckAmount={handleUpdatePaycheckAmount}
             />

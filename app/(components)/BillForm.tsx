@@ -1,12 +1,14 @@
 "use client";
 import React, { useState } from "react";
-import { Bill } from "./types";
+import { Bill, CreditCard } from "./types";
 import { v4 as uuidv4 } from "uuid";
-import { Calendar, DollarSign, Clock, Percent, Plus, Loader2 } from "lucide-react";
+import { Calendar, DollarSign, Clock, Percent, Plus, Loader2, CreditCard as CreditCardIcon, Receipt } from "lucide-react";
+import CreditCardForm from "./CreditCardForm";
 
 interface BillFormProps {
   setBillsAction: React.Dispatch<React.SetStateAction<Bill[]>>;
   onAddBill?: (bill: Omit<Bill, 'id'>) => Promise<Bill | null>;
+  onAddCreditCard?: (card: Omit<CreditCard, 'id' | 'userId' | 'createdAt' | 'updatedAt'>) => Promise<CreditCard | null>;
 }
 
 // Extend the Bill interface to include allowableLateDay
@@ -14,7 +16,8 @@ interface ExtendedBill extends Bill {
   allowableLateDay: number;
 }
 
-export default function BillForm({ setBillsAction, onAddBill }: BillFormProps) {
+export default function BillForm({ setBillsAction, onAddBill, onAddCreditCard }: BillFormProps) {
+  const [formMode, setFormMode] = useState<'bill' | 'credit-card'>('bill');
   const [newBill, setNewBill] = useState<ExtendedBill>({
     name: "",
     paymentAmount: 0,
@@ -94,12 +97,44 @@ export default function BillForm({ setBillsAction, onAddBill }: BillFormProps) {
   return (
     <div className="bg-white rounded-lg border border-neutral-200 shadow-card overflow-hidden">
       {/* Header */}
-      <div className="bg-neutral-900 px-5 py-4 border-b-2 border-primary-500">
-        <h2 className="text-base font-bold text-white uppercase tracking-wide">Add New Bill</h2>
+      <div className={`px-5 py-4 border-b-2 ${formMode === 'credit-card' ? 'bg-blue-800 border-blue-500' : 'bg-neutral-900 border-primary-500'}`}>
+        <h2 className="text-base font-bold text-white uppercase tracking-wide">
+          {formMode === 'credit-card' ? 'Add Credit Card' : 'Add New Bill'}
+        </h2>
+      </div>
+
+      {/* Form Mode Toggle */}
+      <div className="flex border-b border-neutral-200">
+        <button
+          onClick={() => setFormMode('bill')}
+          className={`flex-1 py-3 px-4 text-sm font-semibold uppercase tracking-wide flex items-center justify-center gap-2 transition-colors ${
+            formMode === 'bill'
+              ? 'bg-primary-50 text-primary-700 border-b-2 border-primary-500'
+              : 'text-neutral-500 hover:text-neutral-700 hover:bg-neutral-50'
+          }`}
+        >
+          <Receipt className="w-4 h-4" />
+          Bill
+        </button>
+        <button
+          onClick={() => setFormMode('credit-card')}
+          className={`flex-1 py-3 px-4 text-sm font-semibold uppercase tracking-wide flex items-center justify-center gap-2 transition-colors ${
+            formMode === 'credit-card'
+              ? 'bg-blue-50 text-blue-700 border-b-2 border-blue-500'
+              : 'text-neutral-500 hover:text-neutral-700 hover:bg-neutral-50'
+          }`}
+        >
+          <CreditCardIcon className="w-4 h-4" />
+          Credit Card
+        </button>
       </div>
 
       {/* Form Content */}
       <div className="p-4 sm:p-5 space-y-5 overflow-x-hidden">
+        {formMode === 'credit-card' && onAddCreditCard ? (
+          <CreditCardForm onAddCreditCard={onAddCreditCard} />
+        ) : (
+          <>
         {/* Bill Name */}
         <div>
           <label className="block text-xs font-semibold text-neutral-500 uppercase tracking-wide mb-2">
@@ -228,6 +263,8 @@ export default function BillForm({ setBillsAction, onAddBill }: BillFormProps) {
             </>
           )}
         </button>
+          </>
+        )}
       </div>
     </div>
   );
