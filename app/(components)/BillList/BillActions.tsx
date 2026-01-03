@@ -7,7 +7,7 @@ import '../../../styles/globals.css';
 interface BillActionsProps {
   bill: Bill;
   onEditAction: (bill: Bill) => void;
-  onDeleteAction: (billName: string) => void;
+  onDeleteAction: (billId: string) => void;
 }
 
 export default function BillActions({ bill, onEditAction, onDeleteAction }: BillActionsProps) {
@@ -21,7 +21,7 @@ export default function BillActions({ bill, onEditAction, onDeleteAction }: Bill
         <Pencil className="w-3.5 h-3.5" />
       </button>
       <button
-        onClick={() => onDeleteAction(bill.name)}
+        onClick={() => onDeleteAction(bill.id)}
         className="inline-flex items-center justify-center w-8 h-8 rounded bg-neutral-100 text-neutral-600 hover:bg-red-500 hover:text-white transition-colors"
         title="Delete bill"
       >

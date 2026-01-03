@@ -421,6 +421,25 @@ export default function BudgetPlanner() {
     }
   };
 
+  // Handler to delete a bill from database
+  const handleDeleteBill = async (billId: string) => {
+    if (!user) {
+      // If no user, just remove from local state
+      setBills((prev) => prev.filter((b) => b.id !== billId));
+      return;
+    }
+    try {
+      const response = await fetch(`/api/bills/${billId}`, {
+        method: 'DELETE',
+      });
+      if (response.ok) {
+        setBills((prev) => prev.filter((b) => b.id !== billId));
+      }
+    } catch (error) {
+      console.error('Failed to delete bill:', error);
+    }
+  };
+
   // Calculate default savings for a paycheck based on percentage
   const getDefaultSavingsForPaycheck = (grossPaycheckAmount: number): number => {
     return grossPaycheckAmount * (income.miscPercent / 100);
@@ -1418,7 +1437,7 @@ export default function BudgetPlanner() {
 
           {/* Main Content Area - Hidden on mobile when viewing budget */}
           <section className={`lg:flex-1 space-y-6 ${mobileTab === 'budget' ? 'hidden lg:block' : ''}`}>
-            <BillList bills={bills} setBillsAction={setBills} />
+            <BillList bills={bills} setBillsAction={setBills} onDeleteBill={handleDeleteBill} />
             <PaymentSchedule
               schedule={schedule}
               setScheduleAction={setSchedule}

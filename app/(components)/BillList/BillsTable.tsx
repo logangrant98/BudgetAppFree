@@ -8,7 +8,7 @@ import '../../../styles/globals.css';
 interface BillsTableProps {
   bills: Bill[];
   onEditAction: (bill: Bill) => void;
-  onDeleteAction: (billName: string) => void;
+  onDeleteAction: (billId: string) => void;
   collapsible?: boolean;
 }
 
