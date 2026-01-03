@@ -21,7 +21,6 @@ import {
   Check,
   X,
   TrendingUp,
-  Circle,
   Loader2
 } from "lucide-react";
 
@@ -616,30 +615,41 @@ export default function PaymentSchedule({
                   {/* Savings Row - Always First */}
                   <tr className={`${savingsInfo.isDeposited ? 'bg-green-50' : 'bg-green-50/50'} transition-colors`}>
                     <td className="px-3 py-4 whitespace-nowrap text-center">
-                      {savingsInfo.id ? (
-                        loadingSavingsDeposited.has(savingsInfo.id) ? (
-                          <div className="w-7 h-7 flex items-center justify-center">
-                            <Loader2 className="w-5 h-5 text-green-500 animate-spin" />
-                          </div>
-                        ) : (
-                          <button
-                            onClick={() => handleToggleSavingsDeposited(savingsInfo.id!, !savingsInfo.isDeposited)}
-                            className={`relative w-7 h-7 rounded-full border-2 flex items-center justify-center transition-all duration-300 ${
-                              savingsInfo.isDeposited
-                                ? 'bg-green-500 border-green-500'
-                                : 'border-green-300 hover:border-green-400 hover:bg-green-100'
-                            }`}
-                            title={savingsInfo.isDeposited ? "Mark as not deposited" : "Mark as deposited"}
-                          >
-                            {savingsInfo.isDeposited && (
-                              <Check className="w-4 h-4 text-white" />
-                            )}
-                          </button>
-                        )
-                      ) : (
-                        <div className="w-7 h-7 rounded-full border-2 border-dashed border-green-300 flex items-center justify-center">
-                          <Circle className="w-3 h-3 text-green-400" />
+                      {loadingSavingsDeposited.has(savingsInfo.id || dateStr) ? (
+                        <div className="w-7 h-7 flex items-center justify-center">
+                          <Loader2 className="w-5 h-5 text-green-500 animate-spin" />
                         </div>
+                      ) : (
+                        <button
+                          onClick={async () => {
+                            if (savingsInfo.id) {
+                              await handleToggleSavingsDeposited(savingsInfo.id, !savingsInfo.isDeposited);
+                            } else {
+                              // Auto-create the savings record and mark as deposited
+                              setLoadingSavingsDeposited(prev => new Set(prev).add(dateStr));
+                              try {
+                                await onUpdatePaycheckSavings(dateStr, savingsInfo.amount);
+                                // After creating, we need to mark it deposited - the parent will re-render with the new id
+                              } finally {
+                                setLoadingSavingsDeposited(prev => {
+                                  const next = new Set(prev);
+                                  next.delete(dateStr);
+                                  return next;
+                                });
+                              }
+                            }
+                          }}
+                          className={`relative w-7 h-7 rounded-full border-2 flex items-center justify-center transition-all duration-300 ${
+                            savingsInfo.isDeposited
+                              ? 'bg-green-500 border-green-500'
+                              : 'border-green-300 hover:border-green-400 hover:bg-green-100'
+                          }`}
+                          title={savingsInfo.isDeposited ? "Mark as not deposited" : "Mark as deposited"}
+                        >
+                          {savingsInfo.isDeposited && (
+                            <Check className="w-4 h-4 text-white" />
+                          )}
+                        </button>
                       )}
                     </td>
                     <td className="px-5 py-4 whitespace-nowrap">
@@ -737,17 +747,7 @@ export default function PaymentSchedule({
                       )}
                     </td>
                     <td className="px-5 py-4 whitespace-nowrap text-center">
-                      {!savingsInfo.id && (
-                        <button
-                          onClick={async () => {
-                            await onUpdatePaycheckSavings(dateStr, savingsInfo.amount);
-                          }}
-                          className="px-3 py-1.5 bg-green-600 text-white text-xs font-semibold rounded hover:bg-green-700 transition-colors"
-                          title="Save to track this deposit"
-                        >
-                          Track
-                        </button>
-                      )}
+                      {/* No action needed - savings auto-tracks on first interaction */}
                     </td>
                   </tr>
                   {/* Bill Rows */}
