@@ -1272,7 +1272,7 @@ export default function BudgetPlanner() {
                       Projected Savings
                     </div>
                     <div className="text-2xl font-bold text-white">
-                      {formatCurrency(savings.total)}
+                      {formatCurrency(savings.total + oneTimeSavingsTotal)}
                     </div>
                   </div>
                 </div>
