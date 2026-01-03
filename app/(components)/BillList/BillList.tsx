@@ -10,9 +10,10 @@ interface BillListProps {
   setBillsAction: React.Dispatch<React.SetStateAction<Bill[]>>;
   collapsible?: boolean;
   onDeleteBill?: (billId: string) => void;
+  onEditBill?: (bill: Bill) => Promise<void>;
 }
 
-export default function BillList({ bills, setBillsAction, collapsible, onDeleteBill }: BillListProps) {
+export default function BillList({ bills, setBillsAction, collapsible, onDeleteBill, onEditBill }: BillListProps) {
   const [editingBill, setEditingBill] = useState<Bill | null>(null);
 
   const handleDeleteBillAction = (billId: string) => {
@@ -40,11 +41,16 @@ export default function BillList({ bills, setBillsAction, collapsible, onDeleteB
     );
   };
 
-  const handleSaveEdit = () => {
+  const handleSaveEdit = async () => {
     if (!editingBill) return;
-    setBillsAction((prev) =>
-      prev.map((b) => (b.name === editingBill.name ? editingBill : b))
-    );
+    if (onEditBill) {
+      await onEditBill(editingBill);
+    } else {
+      // Fallback to local state only (for non-logged-in users)
+      setBillsAction((prev) =>
+        prev.map((b) => (b.id === editingBill.id ? editingBill : b))
+      );
+    }
     setEditingBill(null);
   };
 
@@ -80,7 +86,7 @@ export default function BillList({ bills, setBillsAction, collapsible, onDeleteB
 
             {/* Modal Body */}
             <div className="p-5 space-y-5">
-              {/* Bill Name (Disabled) */}
+              {/* Bill Name */}
               <div>
                 <label className="block text-xs font-semibold text-neutral-500 uppercase tracking-wide mb-2">
                   Bill Name
@@ -90,8 +96,7 @@ export default function BillList({ bills, setBillsAction, collapsible, onDeleteB
                   name="name"
                   value={editingBill.name}
                   onChange={handleEditChange}
-                  className="block w-full rounded border border-neutral-200 bg-neutral-100 text-neutral-500 py-2.5 px-3 text-sm cursor-not-allowed"
-                  disabled
+                  className="block w-full rounded border border-neutral-300 bg-neutral-50 text-neutral-900 py-2.5 px-3 text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition-colors"
                 />
               </div>
 
