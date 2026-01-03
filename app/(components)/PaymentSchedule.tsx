@@ -664,11 +664,6 @@ export default function PaymentSchedule({
                         <span className="px-2 py-0.5 text-xs font-semibold rounded bg-green-200 text-green-800 uppercase tracking-wide">
                           Savings
                         </span>
-                        {savingsInfo.isCustom && (
-                          <span className="px-2 py-0.5 text-xs font-semibold rounded bg-blue-100 text-blue-700 uppercase">
-                            Custom
-                          </span>
-                        )}
                       </div>
                     </td>
                     <td className="px-5 py-4 whitespace-nowrap text-right">
@@ -892,11 +887,6 @@ export default function PaymentSchedule({
                                   }`}>
                                     {formatCurrency(billAmountInfo.amount)}
                                   </span>
-                                  {billAmountInfo.isCustom && !isPaid && (
-                                    <span className="px-1.5 py-0.5 text-xs font-semibold rounded bg-blue-100 text-blue-700 uppercase">
-                                      Custom
-                                    </span>
-                                  )}
                                   {!isPaid && (
                                     <Edit3 className="w-3 h-3 text-neutral-400 opacity-0 group-hover:opacity-100 transition-opacity" />
                                   )}
