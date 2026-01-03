@@ -92,32 +92,32 @@ export default function CreditCardList({
   return (
     <div className="bg-white rounded-lg border border-neutral-200 shadow-card overflow-hidden">
       {/* Header */}
-      <div className="bg-blue-800 px-5 py-4 border-b-2 border-blue-500">
+      <div className="bg-neutral-900 px-5 py-4 border-b-2 border-primary-500">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="bg-blue-500 p-1.5 rounded">
-              <CreditCardIcon className="w-5 h-5 text-blue-900" />
+            <div className="bg-primary-500 p-1.5 rounded">
+              <CreditCardIcon className="w-5 h-5 text-neutral-900" />
             </div>
             <div>
               <h2 className="text-base font-bold text-white uppercase tracking-wide">Credit Cards</h2>
-              <p className="text-blue-200 text-xs mt-0.5">{creditCards.length} {creditCards.length === 1 ? 'card' : 'cards'} • {formatCurrency(totalDebt)} total debt</p>
+              <p className="text-neutral-400 text-xs mt-0.5">{creditCards.length} {creditCards.length === 1 ? 'card' : 'cards'} • {formatCurrency(totalDebt)} total debt</p>
             </div>
           </div>
         </div>
       </div>
 
       {/* Summary Stats */}
-      <div className="grid grid-cols-3 border-b border-neutral-200 bg-blue-50">
+      <div className="grid grid-cols-3 border-b border-neutral-200 bg-neutral-50">
         <div className="p-3 border-r border-neutral-200">
-          <p className="text-xs font-semibold text-blue-600 uppercase tracking-wide mb-1">Total Debt</p>
-          <p className="text-lg font-bold text-blue-800">{formatCurrency(totalDebt)}</p>
+          <p className="text-xs font-semibold text-neutral-500 uppercase tracking-wide mb-1">Total Debt</p>
+          <p className="text-lg font-bold text-neutral-900">{formatCurrency(totalDebt)}</p>
         </div>
         <div className="p-3 border-r border-neutral-200">
-          <p className="text-xs font-semibold text-blue-600 uppercase tracking-wide mb-1">Min. Payments</p>
+          <p className="text-xs font-semibold text-neutral-500 uppercase tracking-wide mb-1">Min. Payments</p>
           <p className="text-lg font-bold text-neutral-900">{formatCurrency(totalMinPayment)}</p>
         </div>
         <div className="p-3">
-          <p className="text-xs font-semibold text-blue-600 uppercase tracking-wide mb-1">Recommended</p>
+          <p className="text-xs font-semibold text-neutral-500 uppercase tracking-wide mb-1">Recommended</p>
           <p className="text-lg font-bold text-green-700">{formatCurrency(totalRecommendedPayment)}</p>
         </div>
       </div>
@@ -162,7 +162,7 @@ export default function CreditCardList({
                         type="text"
                         value={editForm.name || ''}
                         onChange={(e) => setEditForm(prev => ({ ...prev, name: e.target.value }))}
-                        className="w-full px-2 py-1.5 border border-neutral-300 rounded text-sm focus:ring-1 focus:ring-blue-500"
+                        className="w-full px-2 py-1.5 border border-neutral-300 rounded text-sm focus:ring-1 focus:ring-neutral-500"
                       />
                     </div>
                     <div>
@@ -173,7 +173,7 @@ export default function CreditCardList({
                           type="number"
                           value={editForm.balance || 0}
                           onChange={(e) => setEditForm(prev => ({ ...prev, balance: parseFloat(e.target.value) || 0 }))}
-                          className="w-full pl-6 pr-2 py-1.5 border border-neutral-300 rounded text-sm focus:ring-1 focus:ring-blue-500"
+                          className="w-full pl-6 pr-2 py-1.5 border border-neutral-300 rounded text-sm focus:ring-1 focus:ring-neutral-500"
                           step="0.01"
                         />
                       </div>
@@ -186,7 +186,7 @@ export default function CreditCardList({
                           type="number"
                           value={editForm.minimumPayment || 0}
                           onChange={(e) => setEditForm(prev => ({ ...prev, minimumPayment: parseFloat(e.target.value) || 0 }))}
-                          className="w-full pl-6 pr-2 py-1.5 border border-neutral-300 rounded text-sm focus:ring-1 focus:ring-blue-500"
+                          className="w-full pl-6 pr-2 py-1.5 border border-neutral-300 rounded text-sm focus:ring-1 focus:ring-neutral-500"
                           step="0.01"
                         />
                       </div>
@@ -199,7 +199,7 @@ export default function CreditCardList({
                           type="number"
                           value={editForm.recommendedPayment || 0}
                           onChange={(e) => setEditForm(prev => ({ ...prev, recommendedPayment: parseFloat(e.target.value) || 0 }))}
-                          className="w-full pl-6 pr-2 py-1.5 border border-neutral-300 rounded text-sm focus:ring-1 focus:ring-blue-500"
+                          className="w-full pl-6 pr-2 py-1.5 border border-neutral-300 rounded text-sm focus:ring-1 focus:ring-neutral-500"
                           step="0.01"
                         />
                       </div>
@@ -212,7 +212,7 @@ export default function CreditCardList({
                           type="number"
                           value={editForm.apr || 0}
                           onChange={(e) => setEditForm(prev => ({ ...prev, apr: parseFloat(e.target.value) || 0 }))}
-                          className="w-full pl-6 pr-2 py-1.5 border border-neutral-300 rounded text-sm focus:ring-1 focus:ring-blue-500"
+                          className="w-full pl-6 pr-2 py-1.5 border border-neutral-300 rounded text-sm focus:ring-1 focus:ring-neutral-500"
                           step="0.01"
                         />
                       </div>
@@ -222,7 +222,7 @@ export default function CreditCardList({
                       <select
                         value={editForm.dueDate || '1'}
                         onChange={(e) => setEditForm(prev => ({ ...prev, dueDate: e.target.value }))}
-                        className="w-full px-2 py-1.5 border border-neutral-300 rounded text-sm focus:ring-1 focus:ring-blue-500"
+                        className="w-full px-2 py-1.5 border border-neutral-300 rounded text-sm focus:ring-1 focus:ring-neutral-500"
                       >
                         {Array.from({ length: 31 }, (_, i) => i + 1).map(day => (
                           <option key={day} value={day.toString()}>{day}</option>
@@ -235,19 +235,19 @@ export default function CreditCardList({
                 /* View Mode */
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center">
-                      <CreditCardIcon className="w-5 h-5 text-blue-600" />
+                    <div className="w-10 h-10 bg-neutral-100 rounded-lg flex items-center justify-center">
+                      <CreditCardIcon className="w-5 h-5 text-neutral-700" />
                     </div>
                     <div>
                       <div className="flex items-center gap-2">
                         <span className="text-sm font-semibold text-neutral-900">{card.name}</span>
-                        <span className="px-2 py-0.5 text-xs font-semibold rounded bg-blue-100 text-blue-800">
+                        <span className="px-2 py-0.5 text-xs font-semibold rounded bg-neutral-900 text-white">
                           {card.apr.toFixed(1)}% APR
                         </span>
                       </div>
                       <div className="flex items-center gap-3 mt-0.5">
                         <span className="text-xs text-neutral-500">
-                          Balance: <span className="font-semibold text-blue-700">{formatCurrency(card.balance)}</span>
+                          Balance: <span className="font-semibold text-neutral-700">{formatCurrency(card.balance)}</span>
                         </span>
                         <span className="text-xs text-neutral-500">
                           Payment: <span className="font-semibold text-green-700">{formatCurrency(card.recommendedPayment)}</span>
@@ -262,7 +262,7 @@ export default function CreditCardList({
                   <div className="flex items-center gap-2">
                     <button
                       onClick={() => handleStartEdit(card)}
-                      className="p-2 text-neutral-400 hover:text-blue-600 hover:bg-blue-50 rounded transition-colors"
+                      className="p-2 text-neutral-400 hover:text-neutral-600 hover:bg-neutral-100 rounded transition-colors"
                       title="Edit card"
                     >
                       <Edit3 className="w-4 h-4" />

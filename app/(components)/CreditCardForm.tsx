@@ -78,7 +78,7 @@ export default function CreditCardForm({ onAddCreditCard }: CreditCardFormProps)
             name="name"
             value={newCard.name}
             onChange={handleChange}
-            className="pl-10 block w-full rounded border border-neutral-300 bg-neutral-50 text-neutral-900 py-2.5 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+            className="pl-10 block w-full rounded border border-neutral-300 bg-neutral-50 text-neutral-900 py-2.5 text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition-colors"
             placeholder="e.g., Discover, Apple Card"
           />
         </div>
@@ -98,7 +98,7 @@ export default function CreditCardForm({ onAddCreditCard }: CreditCardFormProps)
             name="balance"
             value={newCard.balance}
             onChange={handleChange}
-            className="pl-10 block w-full rounded border border-neutral-300 bg-neutral-50 text-neutral-900 py-2.5 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+            className="pl-10 block w-full rounded border border-neutral-300 bg-neutral-50 text-neutral-900 py-2.5 text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition-colors"
             placeholder="0.00"
             step="0.01"
             min="0"
@@ -120,7 +120,7 @@ export default function CreditCardForm({ onAddCreditCard }: CreditCardFormProps)
             name="minimumPayment"
             value={newCard.minimumPayment}
             onChange={handleChange}
-            className="pl-10 block w-full rounded border border-neutral-300 bg-neutral-50 text-neutral-900 py-2.5 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+            className="pl-10 block w-full rounded border border-neutral-300 bg-neutral-50 text-neutral-900 py-2.5 text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition-colors"
             placeholder="0.00"
             step="0.01"
             min="0"
@@ -142,7 +142,7 @@ export default function CreditCardForm({ onAddCreditCard }: CreditCardFormProps)
             name="recommendedPayment"
             value={newCard.recommendedPayment}
             onChange={handleChange}
-            className="pl-10 block w-full rounded border border-neutral-300 bg-neutral-50 text-neutral-900 py-2.5 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+            className="pl-10 block w-full rounded border border-neutral-300 bg-neutral-50 text-neutral-900 py-2.5 text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition-colors"
             placeholder="0.00"
             step="0.01"
             min="0"
@@ -165,7 +165,7 @@ export default function CreditCardForm({ onAddCreditCard }: CreditCardFormProps)
             name="apr"
             value={newCard.apr}
             onChange={handleChange}
-            className="pl-10 block w-full rounded border border-neutral-300 bg-neutral-50 text-neutral-900 py-2.5 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+            className="pl-10 block w-full rounded border border-neutral-300 bg-neutral-50 text-neutral-900 py-2.5 text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition-colors"
             placeholder="0.00"
             step="0.01"
             min="0"
@@ -183,7 +183,7 @@ export default function CreditCardForm({ onAddCreditCard }: CreditCardFormProps)
           name="dueDate"
           value={newCard.dueDate}
           onChange={handleChange}
-          className="block w-full rounded border border-neutral-300 bg-neutral-50 text-neutral-900 py-2.5 px-3 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+          className="block w-full rounded border border-neutral-300 bg-neutral-50 text-neutral-900 py-2.5 px-3 text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition-colors"
         >
           {dueDateOptions.map(day => (
             <option key={day} value={day.toString()}>
@@ -197,7 +197,7 @@ export default function CreditCardForm({ onAddCreditCard }: CreditCardFormProps)
       <button
         onClick={handleAddCard}
         disabled={isSaving || !newCard.name}
-        className="w-full bg-blue-600 text-white py-2.5 px-4 rounded font-semibold hover:bg-blue-500 transition-colors flex items-center justify-center gap-2 text-sm disabled:opacity-50 disabled:cursor-not-allowed"
+        className="w-full bg-neutral-900 text-white py-2.5 px-4 rounded font-semibold hover:bg-neutral-800 transition-colors flex items-center justify-center gap-2 text-sm disabled:opacity-50 disabled:cursor-not-allowed"
       >
         {isSaving ? (
           <>
