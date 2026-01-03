@@ -440,6 +440,29 @@ export default function BudgetPlanner() {
     }
   };
 
+  // Handler to edit a bill in database
+  const handleEditBill = async (bill: Bill) => {
+    if (!user || !bill.id) {
+      // If no user, just update local state
+      setBills((prev) => prev.map((b) => (b.id === bill.id ? bill : b)));
+      return;
+    }
+    try {
+      const response = await fetch(`/api/bills/${bill.id}`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(bill),
+      });
+      if (response.ok) {
+        setBills((prev) => prev.map((b) => (b.id === bill.id ? bill : b)));
+      }
+    } catch (error) {
+      console.error('Failed to edit bill:', error);
+    }
+  };
+
   // Calculate default savings for a paycheck based on percentage
   const getDefaultSavingsForPaycheck = (grossPaycheckAmount: number): number => {
     return grossPaycheckAmount * (income.miscPercent / 100);
@@ -1437,7 +1460,7 @@ export default function BudgetPlanner() {
 
           {/* Main Content Area - Hidden on mobile when viewing budget */}
           <section className={`lg:flex-1 space-y-6 ${mobileTab === 'budget' ? 'hidden lg:block' : ''}`}>
-            <BillList bills={bills} setBillsAction={setBills} onDeleteBill={handleDeleteBill} />
+            <BillList bills={bills} setBillsAction={setBills} onDeleteBill={handleDeleteBill} onEditBill={handleEditBill} />
             <PaymentSchedule
               schedule={schedule}
               setScheduleAction={setSchedule}
