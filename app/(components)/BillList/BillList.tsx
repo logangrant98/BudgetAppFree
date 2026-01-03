@@ -9,13 +9,19 @@ interface BillListProps {
   bills: Bill[];
   setBillsAction: React.Dispatch<React.SetStateAction<Bill[]>>;
   collapsible?: boolean;
+  onDeleteBill?: (billId: string) => void;
 }
 
-export default function BillList({ bills, setBillsAction, collapsible }: BillListProps) {
+export default function BillList({ bills, setBillsAction, collapsible, onDeleteBill }: BillListProps) {
   const [editingBill, setEditingBill] = useState<Bill | null>(null);
 
-  const handleDeleteBillAction = (billName: string) => {
-    setBillsAction((prev) => prev.filter((b) => b.name !== billName));
+  const handleDeleteBillAction = (billId: string) => {
+    if (onDeleteBill) {
+      onDeleteBill(billId);
+    } else {
+      // Fallback to local state only (for non-logged-in users)
+      setBillsAction((prev) => prev.filter((b) => b.id !== billId));
+    }
   };
 
   const handleEditBillAction = (bill: Bill) => {
