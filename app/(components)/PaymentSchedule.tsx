@@ -214,13 +214,6 @@ export default function PaymentSchedule({
     };
   };
 
-  // Check if a paycheck has an amount override
-  const hasPaycheckAmountOverride = (sourceId: string | undefined, payDate: Date): boolean => {
-    if (!sourceId) return false;
-    const dateStr = payDate.toISOString().split('T')[0];
-    return paycheckAmountOverrides.some(o => o.sourceId === sourceId && o.paycheckDate === dateStr);
-  };
-
   // Handle starting edit mode for paycheck amount
   const handleStartEditPaycheckAmount = (sourceId: string, payDate: Date, currentGrossAmount: number) => {
     const key = `${sourceId}-${payDate.toISOString().split('T')[0]}`;
@@ -593,20 +586,11 @@ export default function PaymentSchedule({
                   const paycheckKey = `${alloc.sourceId}-${dateStr}`;
                   const isEditingPaycheck = editingPaycheckAmountKey === paycheckKey;
                   const isSavingPaycheck = savingPaycheckAmounts.has(paycheckKey);
-                  const hasOverride = hasPaycheckAmountOverride(alloc.sourceId, alloc.payDate);
-
                   return (
                     <>
-                      <div className="flex items-center gap-1 mb-1">
-                        <p className="text-xs font-semibold text-neutral-500 uppercase tracking-wide">
-                          Gross Pay
-                        </p>
-                        {hasOverride && (
-                          <span className="text-xs bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded font-medium">
-                            Custom
-                          </span>
-                        )}
-                      </div>
+                      <p className="text-xs font-semibold text-neutral-500 uppercase tracking-wide mb-1">
+                        Gross Pay
+                      </p>
                       {isEditingPaycheck ? (
                         <div className="flex items-center gap-1">
                           <span className="text-neutral-400">$</span>
