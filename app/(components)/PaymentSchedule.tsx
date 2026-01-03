@@ -461,11 +461,57 @@ export default function PaymentSchedule({
     setEditingBalanceAmount("");
   };
 
-  // Get total credit card payment amount for a paycheck
-  const getCreditCardTotalForPaycheck = (paycheckDate: string): number => {
-    if (!creditCards) return 0;
-    return creditCards.reduce((total, card) => {
-      const payment = getCreditCardPaymentDetails(card.id, paycheckDate);
+  // Helper function to determine which credit cards are due on a specific paycheck
+  // A credit card should appear on the paycheck that is closest to but before/on the due date
+  const getCreditCardsForPaycheck = (payDate: Date): CreditCard[] => {
+    if (!creditCards || creditCards.length === 0) return [];
+
+    const payDateStr = payDate.toISOString().split('T')[0];
+    const payMonth = payDate.getMonth();
+    const payYear = payDate.getFullYear();
+    const payDay = payDate.getDate();
+
+    // Sort paychecks by date
+    const sortedPaychecks = [...schedule].sort(
+      (a, b) => a.payDate.getTime() - b.payDate.getTime()
+    );
+
+    // Find the next paycheck after this one
+    const currentIndex = sortedPaychecks.findIndex(
+      p => p.payDate.toISOString().split('T')[0] === payDateStr
+    );
+    const nextPaycheck = currentIndex < sortedPaychecks.length - 1
+      ? sortedPaychecks[currentIndex + 1]
+      : null;
+
+    return creditCards.filter(card => {
+      const cardDueDay = parseInt(card.dueDate, 10);
+
+      const nextPayDay = nextPaycheck ? nextPaycheck.payDate.getDate() : 32;
+      const nextPayMonth = nextPaycheck ? nextPaycheck.payDate.getMonth() : payMonth;
+      const nextPayYear = nextPaycheck ? nextPaycheck.payDate.getFullYear() : payYear;
+
+      if (!nextPaycheck) {
+        // Last paycheck - show all remaining cards due after this date
+        return cardDueDay >= payDay;
+      }
+
+      // Same month scenario
+      if (payMonth === nextPayMonth && payYear === nextPayYear) {
+        return cardDueDay >= payDay && cardDueDay < nextPayDay;
+      }
+
+      // Crossing month boundary
+      return cardDueDay >= payDay || cardDueDay < nextPayDay;
+    });
+  };
+
+  // Get total credit card payment amount for a paycheck (only for cards due on that paycheck)
+  const getCreditCardTotalForPaycheck = (payDate: Date): number => {
+    const cardsForPaycheck = getCreditCardsForPaycheck(payDate);
+    const paycheckDateStr = payDate.toISOString().split('T')[0];
+    return cardsForPaycheck.reduce((total, card) => {
+      const payment = getCreditCardPaymentDetails(card.id, paycheckDateStr);
       if (payment && !payment.isPaid) {
         return total + payment.amount;
       } else if (!payment) {
@@ -1189,18 +1235,22 @@ export default function PaymentSchedule({
                         </tr>
                       );
                     })}
-                  {/* Credit Cards Section */}
-                  {creditCards && creditCards.length > 0 && (
+                  {/* Credit Cards Section - Only show cards due on this paycheck */}
+                  {(() => {
+                    const cardsForThisPaycheck = getCreditCardsForPaycheck(alloc.payDate);
+                    if (cardsForThisPaycheck.length === 0) return null;
+
+                    return (
                     <>
                       {/* Credit Cards Header Row */}
-                      <tr className="bg-blue-50 border-t-2 border-blue-200">
+                      <tr className="bg-neutral-100 border-t-2 border-neutral-300">
                         <td className="px-3 py-3 whitespace-nowrap text-center">
                           <button
                             onClick={() => toggleCreditCardsExpanded(dateStr)}
-                            className="w-7 h-7 rounded-full bg-blue-100 border-2 border-blue-300 flex items-center justify-center hover:bg-blue-200 transition-colors"
+                            className="w-7 h-7 rounded-full bg-neutral-200 border-2 border-neutral-400 flex items-center justify-center hover:bg-neutral-300 transition-colors"
                           >
                             <ChevronRight
-                              className={`w-4 h-4 text-blue-600 transition-transform ${
+                              className={`w-4 h-4 text-neutral-700 transition-transform ${
                                 creditCardsExpanded.has(dateStr) ? 'rotate-90' : ''
                               }`}
                             />
@@ -1208,26 +1258,26 @@ export default function PaymentSchedule({
                         </td>
                         <td className="px-5 py-3 whitespace-nowrap" colSpan={2}>
                           <div className="flex items-center gap-2">
-                            <CreditCardIcon className="w-4 h-4 text-blue-600" />
-                            <span className="text-sm font-bold text-blue-800">Credit Cards</span>
-                            <span className="px-2 py-0.5 text-xs font-semibold rounded bg-blue-200 text-blue-800 uppercase tracking-wide">
-                              {creditCards.length} {creditCards.length === 1 ? 'card' : 'cards'}
+                            <CreditCardIcon className="w-4 h-4 text-neutral-700" />
+                            <span className="text-sm font-bold text-neutral-900">Credit Cards</span>
+                            <span className="px-2 py-0.5 text-xs font-semibold rounded bg-neutral-900 text-white uppercase tracking-wide">
+                              {cardsForThisPaycheck.length} {cardsForThisPaycheck.length === 1 ? 'card' : 'cards'}
                             </span>
                           </div>
                         </td>
                         <td className="px-5 py-3 whitespace-nowrap text-right">
-                          <span className="text-sm font-semibold text-blue-800">
-                            {formatCurrency(getCreditCardTotalForPaycheck(dateStr))}
+                          <span className="text-sm font-semibold text-neutral-900">
+                            {formatCurrency(getCreditCardTotalForPaycheck(alloc.payDate))}
                           </span>
                         </td>
                         <td className="px-5 py-3 whitespace-nowrap">
-                          <span className="text-xs text-blue-600">Total Payments</span>
+                          <span className="text-xs text-neutral-600">Total Payments</span>
                         </td>
                         <td className="px-5 py-3 whitespace-nowrap text-center">
                           {/* Status badge showing total cards paid */}
                           {(() => {
-                            const paidCount = creditCards.filter(c => isCreditCardPaid(c.id, dateStr)).length;
-                            if (paidCount === creditCards.length) {
+                            const paidCount = cardsForThisPaycheck.filter(c => isCreditCardPaid(c.id, dateStr)).length;
+                            if (paidCount === cardsForThisPaycheck.length) {
                               return (
                                 <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded text-xs font-semibold bg-green-100 text-green-800">
                                   <CheckCircle className="w-3 h-3" />
@@ -1236,8 +1286,8 @@ export default function PaymentSchedule({
                               );
                             } else if (paidCount > 0) {
                               return (
-                                <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded text-xs font-semibold bg-blue-100 text-blue-800">
-                                  {paidCount}/{creditCards.length} Paid
+                                <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded text-xs font-semibold bg-neutral-200 text-neutral-800">
+                                  {paidCount}/{cardsForThisPaycheck.length} Paid
                                 </span>
                               );
                             }
@@ -1252,14 +1302,14 @@ export default function PaymentSchedule({
                         <td className="px-5 py-3 whitespace-nowrap text-center">
                           <button
                             onClick={() => toggleCreditCardsExpanded(dateStr)}
-                            className="text-xs text-blue-600 hover:text-blue-800 font-medium"
+                            className="text-xs text-neutral-600 hover:text-neutral-900 font-medium"
                           >
                             {creditCardsExpanded.has(dateStr) ? 'Collapse' : 'Expand'}
                           </button>
                         </td>
                       </tr>
                       {/* Individual Credit Card Rows */}
-                      {creditCardsExpanded.has(dateStr) && creditCards.map((card) => {
+                      {creditCardsExpanded.has(dateStr) && cardsForThisPaycheck.map((card) => {
                         const isPaid = isCreditCardPaid(card.id, dateStr);
                         const paymentDetails = getCreditCardPaymentDetails(card.id, dateStr);
                         const paymentAmount = paymentDetails?.amount || card.recommendedPayment;
@@ -1274,12 +1324,12 @@ export default function PaymentSchedule({
                         return (
                           <tr
                             key={`cc-${card.id}-${dateStr}`}
-                            className={`${isPaid ? 'bg-green-50/50' : 'bg-blue-50/30 hover:bg-blue-50/50'} transition-colors border-l-4 border-blue-300`}
+                            className={`${isPaid ? 'bg-green-50/50' : 'hover:bg-neutral-50'} transition-colors border-l-4 border-neutral-400`}
                           >
                             <td className="px-3 py-4 whitespace-nowrap text-center">
                               {isLoading ? (
                                 <div className="w-7 h-7 flex items-center justify-center">
-                                  <Loader2 className="w-5 h-5 text-blue-500 animate-spin" />
+                                  <Loader2 className="w-5 h-5 text-neutral-500 animate-spin" />
                                 </div>
                               ) : (
                                 <button
@@ -1293,7 +1343,7 @@ export default function PaymentSchedule({
                                   className={`relative w-7 h-7 rounded-full border-2 flex items-center justify-center transition-all duration-300 ${
                                     isPaid
                                       ? 'bg-green-500 border-green-500'
-                                      : 'border-blue-300 hover:border-blue-400 hover:bg-blue-100'
+                                      : 'border-neutral-300 hover:border-neutral-400 hover:bg-neutral-100'
                                   }`}
                                   title={isPaid ? "Mark as unpaid" : "Mark as paid"}
                                 >
@@ -1304,7 +1354,7 @@ export default function PaymentSchedule({
                             <td className="px-5 py-4 whitespace-nowrap">
                               <div className="flex flex-col gap-1">
                                 <div className="flex items-center gap-2">
-                                  <CreditCardIcon className={`w-4 h-4 ${isPaid ? 'text-green-500' : 'text-blue-500'}`} />
+                                  <CreditCardIcon className={`w-4 h-4 ${isPaid ? 'text-green-500' : 'text-neutral-700'}`} />
                                   <span className={`text-sm font-semibold ${isPaid ? 'line-through text-neutral-400' : 'text-neutral-900'}`}>
                                     {card.name}
                                   </span>
@@ -1316,7 +1366,7 @@ export default function PaymentSchedule({
                                   )}
                                 </div>
                                 {/* Balance display */}
-                                <div className="flex items-center gap-2 text-xs">
+                                <div className="flex items-center gap-2 text-xs flex-wrap">
                                   {isEditingBalance ? (
                                     <div className="flex items-center gap-1">
                                       <span className="text-neutral-500">Balance:</span>
@@ -1326,7 +1376,7 @@ export default function PaymentSchedule({
                                           type="number"
                                           value={editingBalanceAmount}
                                           onChange={(e) => setEditingBalanceAmount(e.target.value)}
-                                          className="w-20 pl-5 pr-1 py-0.5 border border-blue-300 rounded text-xs focus:outline-none focus:ring-1 focus:ring-blue-500"
+                                          className="w-20 pl-5 pr-1 py-0.5 border border-neutral-300 rounded text-xs focus:outline-none focus:ring-1 focus:ring-neutral-500"
                                           step="0.01"
                                           min="0"
                                           autoFocus
@@ -1361,20 +1411,28 @@ export default function PaymentSchedule({
                                       </button>
                                     </div>
                                   ) : (
-                                    <button
-                                      onClick={() => {
-                                        setEditingCreditCardBalance(balanceEditKey);
-                                        setEditingBalanceAmount(projectedBalance.toString());
-                                      }}
-                                      className="group flex items-center gap-1 hover:bg-blue-100 px-1 py-0.5 rounded cursor-pointer"
-                                      title="Click to update balance"
-                                    >
-                                      <span className="text-neutral-500">Balance:</span>
-                                      <span className={`font-medium ${isPaid ? 'text-green-600' : 'text-blue-700'}`}>
-                                        {formatCurrency(isPaid && paymentDetails?.newBalance !== undefined ? paymentDetails.newBalance : projectedBalance)}
-                                      </span>
-                                      <Edit3 className="w-3 h-3 text-blue-400 opacity-0 group-hover:opacity-100" />
-                                    </button>
+                                    <>
+                                      <button
+                                        onClick={() => {
+                                          setEditingCreditCardBalance(balanceEditKey);
+                                          setEditingBalanceAmount(projectedBalance.toString());
+                                        }}
+                                        className="group flex items-center gap-1 hover:bg-neutral-100 px-1 py-0.5 rounded cursor-pointer"
+                                        title="Click to update balance"
+                                      >
+                                        <span className="text-neutral-500">Balance:</span>
+                                        <span className={`font-medium ${isPaid ? 'text-green-600' : 'text-neutral-700'}`}>
+                                          {formatCurrency(isPaid && paymentDetails?.newBalance !== undefined ? paymentDetails.newBalance : projectedBalance)}
+                                        </span>
+                                        <Edit3 className="w-3 h-3 text-neutral-400 opacity-0 group-hover:opacity-100" />
+                                      </button>
+                                      {/* Show estimated balance after this payment */}
+                                      {!isPaid && (
+                                        <span className="text-green-600 font-medium bg-green-50 px-1.5 py-0.5 rounded">
+                                          → Est. after: {formatCurrency(newBalanceAfterPayment)}
+                                        </span>
+                                      )}
+                                    </>
                                   )}
                                   {isPaid && paymentDetails?.newBalance !== undefined && (
                                     <span className="text-green-600 font-medium">
@@ -1462,7 +1520,7 @@ export default function PaymentSchedule({
                                   </span>
                                 </div>
                               ) : (
-                                <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded text-xs font-semibold bg-blue-100 text-blue-800">
+                                <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded text-xs font-semibold bg-neutral-200 text-neutral-800">
                                   <Clock className="w-3 h-3" />
                                   Due
                                 </span>
@@ -1475,7 +1533,8 @@ export default function PaymentSchedule({
                         );
                       })}
                     </>
-                  )}
+                    );
+                  })()}
                   {/* One-Time Bills - integrated into the same table */}
                   {getOneTimeBillsForPaycheck(alloc.payDate).map((bill) => {
                         const isLoading = loadingOneTimeBills.has(bill.id);

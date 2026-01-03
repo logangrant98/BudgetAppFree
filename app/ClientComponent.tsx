@@ -1101,6 +1101,65 @@ export default function BudgetPlanner() {
 
   // Generate suggestions from the schedule
 
+  // Helper function to determine which credit cards are due on a specific paycheck
+  // A credit card should appear on the paycheck that is closest to but before/on the due date
+  const getCreditCardsForPaycheck = (
+    payDate: Date,
+    allPaychecks: typeof schedule,
+    cards: CreditCard[]
+  ): CreditCard[] => {
+    if (!cards || cards.length === 0) return [];
+
+    const payDateStr = payDate.toISOString().split('T')[0];
+    const payMonth = payDate.getMonth();
+    const payYear = payDate.getFullYear();
+    const payDay = payDate.getDate();
+
+    // Sort paychecks by date
+    const sortedPaychecks = [...allPaychecks].sort(
+      (a, b) => a.payDate.getTime() - b.payDate.getTime()
+    );
+
+    // Find the next paycheck after this one
+    const currentIndex = sortedPaychecks.findIndex(
+      p => p.payDate.toISOString().split('T')[0] === payDateStr
+    );
+    const nextPaycheck = currentIndex < sortedPaychecks.length - 1
+      ? sortedPaychecks[currentIndex + 1]
+      : null;
+
+    return cards.filter(card => {
+      const cardDueDay = parseInt(card.dueDate, 10);
+
+      // Check if this card's due date falls between this paycheck and the next one
+      // We need to check both the current month and potentially the next month
+
+      // Get all paychecks in chronological order
+      const thisPayDay = payDay;
+      const nextPayDay = nextPaycheck ? nextPaycheck.payDate.getDate() : 32; // 32 means end of month
+      const nextPayMonth = nextPaycheck ? nextPaycheck.payDate.getMonth() : payMonth;
+      const nextPayYear = nextPaycheck ? nextPaycheck.payDate.getFullYear() : payYear;
+
+      // Simple logic: card is due on this paycheck if:
+      // 1. The due day is >= this pay day AND < next pay day (same month), OR
+      // 2. The due day is < next pay day but next paycheck is in next month (crossing month boundary)
+
+      if (!nextPaycheck) {
+        // Last paycheck - show all remaining cards due after this date
+        return cardDueDay >= thisPayDay;
+      }
+
+      // Same month scenario
+      if (payMonth === nextPayMonth && payYear === nextPayYear) {
+        return cardDueDay >= thisPayDay && cardDueDay < nextPayDay;
+      }
+
+      // Crossing month boundary
+      // Card is due if: due day >= this pay day (current month), OR due day < next pay day (next month)
+      return cardDueDay >= thisPayDay || cardDueDay < nextPayDay;
+    });
+  };
+
   const handleDownloadPDF = () => {
     const doc = new jsPDF({ orientation: "portrait" });
 
@@ -1304,6 +1363,55 @@ export default function BudgetPlanner() {
       },
     });
 
+    // Credit Cards Overview (if any)
+    if (creditCards && creditCards.length > 0) {
+      const ccTableY = doc.lastAutoTable.finalY + 10;
+      doc.setFontSize(14);
+      doc.setTextColor(23, 23, 23);
+      doc.text("Credit Cards Overview", 15, ccTableY);
+
+      const totalCardDebt = creditCards.reduce((sum, card) => sum + card.balance, 0);
+      const totalCardPayments = creditCards.reduce((sum, card) => sum + card.recommendedPayment, 0);
+
+      const creditCardData = creditCards.map((card) => [
+        card.name,
+        `$${card.balance.toFixed(2)}`,
+        `$${card.recommendedPayment.toFixed(2)}`,
+        `${card.apr.toFixed(2)}%`,
+        `${card.dueDate}${['1', '21', '31'].includes(card.dueDate) ? 'st' : ['2', '22'].includes(card.dueDate) ? 'nd' : ['3', '23'].includes(card.dueDate) ? 'rd' : 'th'}`,
+      ]);
+
+      // Add totals row
+      creditCardData.push([
+        { content: "TOTAL", styles: { fontStyle: 'bold' } },
+        { content: `$${totalCardDebt.toFixed(2)}`, styles: { fontStyle: 'bold' } },
+        { content: `$${totalCardPayments.toFixed(2)}`, styles: { fontStyle: 'bold' } },
+        "",
+        "",
+      ] as unknown as string[]);
+
+      autoTable(doc, {
+        startY: ccTableY + 5,
+        head: [["Card Name", "Balance", "Payment", "APR", "Due"]],
+        body: creditCardData,
+        theme: "plain",
+        styles: {
+          fontSize: 9,
+          cellPadding: 3,
+          lineColor: [229, 229, 229],
+          lineWidth: 0.5,
+        },
+        headStyles: {
+          fillColor: [64, 64, 64],
+          textColor: 255,
+          fontStyle: "bold",
+        },
+        alternateRowStyles: {
+          fillColor: [250, 250, 250],
+        },
+      });
+    }
+
     // Detailed Payment Schedule
     doc.addPage("portrait");
     doc.setFontSize(18);
@@ -1389,6 +1497,43 @@ export default function BudgetPlanner() {
           `${b.apr.toFixed(2)}%`,
           b.dueDate,
           b.isLate ? `Late (${daysLate} days)` : "On Time",
+        ]);
+      });
+
+      // Add credit card rows for cards due on this paycheck
+      const creditCardsForPaycheck = getCreditCardsForPaycheck(alloc.payDate, schedule, creditCards);
+      creditCardsForPaycheck.forEach((card) => {
+        const payment = creditCardPayments.find(
+          p => p.creditCardId === card.id && p.paycheckDate === paycheckDateStr
+        );
+        const isPaid = payment?.isPaid || false;
+        const paymentAmount = payment?.amount || card.recommendedPayment;
+
+        // Calculate projected balance for this card
+        const getProjectedBalanceForCard = (cardToCheck: CreditCard, checkDate: string): number => {
+          const relevantPayments = creditCardPayments
+            .filter(p => p.creditCardId === cardToCheck.id && p.isPaid && p.paycheckDate <= checkDate)
+            .sort((a, b) => a.paycheckDate.localeCompare(b.paycheckDate));
+          let balance = cardToCheck.balance;
+          for (const pmt of relevantPayments) {
+            if (pmt.newBalance !== undefined && pmt.newBalance !== null) {
+              balance = pmt.newBalance;
+            } else {
+              balance = Math.max(0, balance - pmt.amount);
+            }
+          }
+          return balance;
+        };
+
+        const projectedBalance = getProjectedBalanceForCard(card, paycheckDateStr);
+        const estAfterPayment = Math.max(0, projectedBalance - paymentAmount);
+
+        tableRows.push([
+          { content: `💳 ${card.name}`, styles: { fontStyle: 'bold' } },
+          { content: `$${paymentAmount.toFixed(2)}`, styles: { fontStyle: 'bold' } },
+          `${card.apr.toFixed(2)}%`,
+          `${card.dueDate}${['1', '21', '31'].includes(card.dueDate) ? 'st' : ['2', '22'].includes(card.dueDate) ? 'nd' : ['3', '23'].includes(card.dueDate) ? 'rd' : 'th'}`,
+          isPaid ? "Paid" : `Due (→$${estAfterPayment.toFixed(0)})`,
         ]);
       });
 
