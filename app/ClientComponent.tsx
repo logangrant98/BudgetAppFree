@@ -1572,11 +1572,11 @@ export default function BudgetPlanner() {
         const estAfterPayment = Math.max(0, projectedBalance - paymentAmount);
 
         tableRows.push([
-          { content: `💳 ${card.name}`, styles: { fontStyle: 'bold' } },
+          { content: card.name, styles: { fontStyle: 'bold' } },
           { content: `$${paymentAmount.toFixed(2)}`, styles: { fontStyle: 'bold' } },
           `${card.apr.toFixed(2)}%`,
           `${card.dueDate}${['1', '21', '31'].includes(card.dueDate) ? 'st' : ['2', '22'].includes(card.dueDate) ? 'nd' : ['3', '23'].includes(card.dueDate) ? 'rd' : 'th'}`,
-          isPaid ? "Paid" : `Due (→$${estAfterPayment.toFixed(0)})`,
+          isPaid ? "Paid" : `Due (Est. $${estAfterPayment.toFixed(0)})`,
         ]);
       });
 
