@@ -78,3 +78,34 @@ export interface Bill {
     createdAt: string;
     updatedAt: string;
   }
+
+  export interface CreditCard {
+    id: string;
+    userId: string;
+    name: string;              // Card name (e.g., "Discover", "Apple")
+    balance: number;           // Current balance
+    minimumPayment: number;    // Minimum payment amount
+    recommendedPayment: number; // Recommended payment
+    apr: number;
+    dueDate: string;           // Day of month (1-31) as string
+    createdAt: string;
+    updatedAt: string;
+  }
+
+  export interface CreditCardPayment {
+    id: string;
+    creditCardId: string;
+    userId: string;
+    paycheckDate: string;      // The paycheck date this payment is for (YYYY-MM-DD)
+    amount: number;            // Payment amount
+    isPaid: boolean;
+    newBalance?: number;       // Balance after payment
+    paidAt?: string;
+    createdAt: string;
+    updatedAt: string;
+  }
+
+  export interface AllocatedCreditCard extends CreditCard {
+    instanceId: string;        // Unique instance ID for each occurrence
+    projectedBalance: number;  // Projected balance at this point in time
+  }

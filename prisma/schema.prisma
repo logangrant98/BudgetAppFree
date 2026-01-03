@@ -24,6 +24,7 @@ model User {
   bills               Bill[]
   incomeSettings      IncomeSettings?
   billPaycheckAmounts BillPaycheckAmount[]
+  creditCards         CreditCard[]
 }
 
 model IncomeSource {
@@ -128,6 +129,41 @@ model BillPaycheckAmount {
   user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([userId, billName, billDueDate, paycheckDate])
+  @@index([userId])
+  @@index([paycheckDate])
+}
+
+model CreditCard {
+  id                 String              @id @default(cuid())
+  userId             String
+  name               String              // Card name (e.g., "Discover", "Apple")
+  balance            Float               // Current balance
+  minimumPayment     Float               // Minimum payment amount
+  recommendedPayment Float               // Recommended payment (user can set this)
+  apr                Float               @default(0)
+  dueDate            String              // Day of month (1-31) as string for due date
+  createdAt          DateTime            @default(now())
+  updatedAt          DateTime            @updatedAt
+  user               User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  payments           CreditCardPayment[]
+
+  @@index([userId])
+}
+
+model CreditCardPayment {
+  id           String     @id @default(cuid())
+  creditCardId String
+  userId       String
+  paycheckDate String     // The paycheck date this payment is for (YYYY-MM-DD)
+  amount       Float      // Payment amount
+  isPaid       Boolean    @default(false)
+  newBalance   Float?     // Balance after payment (calculated when paid)
+  paidAt       DateTime?
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+  creditCard   CreditCard @relation(fields: [creditCardId], references: [id], onDelete: Cascade)
+
+  @@unique([creditCardId, paycheckDate])
   @@index([userId])
   @@index([paycheckDate])
 }
