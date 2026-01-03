@@ -612,7 +612,8 @@ export default function PaymentSchedule({
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-neutral-100">
-                  {/* Savings Row - Always First */}
+                  {/* Savings Row - Only show if savings amount > 0 */}
+                  {savingsInfo.amount > 0 && (
                   <tr className={`${savingsInfo.isDeposited ? 'bg-green-50' : 'bg-green-50/50'} transition-colors`}>
                     <td className="px-3 py-4 whitespace-nowrap text-center">
                       {loadingSavingsDeposited.has(savingsInfo.id || dateStr) ? (
@@ -750,6 +751,7 @@ export default function PaymentSchedule({
                       {/* No action needed - savings auto-tracks on first interaction */}
                     </td>
                   </tr>
+                  )}
                   {/* Bill Rows */}
                   {alloc.bills.map((bill) => {
                       const dueDate = new Date(bill.dueDate);
