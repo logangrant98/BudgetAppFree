@@ -109,3 +109,13 @@ export interface Bill {
     instanceId: string;        // Unique instance ID for each occurrence
     projectedBalance: number;  // Projected balance at this point in time
   }
+
+  export interface PaycheckAmountOverride {
+    id: string;
+    userId: string;
+    sourceId: string;      // The income source this override is for
+    paycheckDate: string;  // The paycheck date (YYYY-MM-DD)
+    amount: number;        // Override gross paycheck amount
+    createdAt: string;
+    updatedAt: string;
+  }

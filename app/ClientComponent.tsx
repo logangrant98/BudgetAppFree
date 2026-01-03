@@ -1,6 +1,6 @@
 "use client";
 import React, { useState, useMemo, useEffect } from "react";
-import { Income, IncomeSource, Bill, OneTimeBill, AllocatedBill, PaycheckSavings, BillPayment, BillPaycheckAmount, CreditCard, CreditCardPayment } from "./(components)/types";
+import { Income, IncomeSource, Bill, OneTimeBill, AllocatedBill, PaycheckSavings, BillPayment, BillPaycheckAmount, CreditCard, CreditCardPayment, PaycheckAmountOverride } from "./(components)/types";
 import IncomeForm from "./(components)/IncomeForm";
 import BillForm from "./(components)/BillForm";
 import BillList from "./(components)/BillList/BillList";
@@ -53,6 +53,7 @@ export default function BudgetPlanner() {
   const [paycheckSavings, setPaycheckSavings] = useState<PaycheckSavings[]>([]);
   const [billPayments, setBillPayments] = useState<BillPayment[]>([]);
   const [billPaycheckAmounts, setBillPaycheckAmounts] = useState<BillPaycheckAmount[]>([]);
+  const [paycheckAmountOverrides, setPaycheckAmountOverrides] = useState<PaycheckAmountOverride[]>([]);
   const [oneTimeSavingsTotal, setOneTimeSavingsTotal] = useState<number>(0);
   const [isSavingIncome, setIsSavingIncome] = useState(false);
   // Track manual bill-to-paycheck assignments (when user moves bills)
@@ -214,6 +215,19 @@ export default function BudgetPlanner() {
       }
     };
 
+    const fetchPaycheckAmountOverrides = async () => {
+      if (!user) return;
+      try {
+        const response = await fetch('/api/paycheck-amounts');
+        if (response.ok) {
+          const data = await response.json();
+          setPaycheckAmountOverrides(data);
+        }
+      } catch (error) {
+        console.error('Failed to fetch paycheck amount overrides:', error);
+      }
+    };
+
     // Load one-time savings from localStorage
     const savedOneTimeSavings = localStorage.getItem('oneTimeSavingsTotal');
     if (savedOneTimeSavings) {
@@ -228,6 +242,7 @@ export default function BudgetPlanner() {
     fetchBillPaycheckAmounts();
     fetchCreditCards();
     fetchCreditCardPayments();
+    fetchPaycheckAmountOverrides();
   }, [user]);
 
   // Handler to add a new one-time bill
@@ -508,6 +523,37 @@ export default function BudgetPlanner() {
       }
     } catch (error) {
       console.error('Failed to toggle credit card payment:', error);
+    }
+  };
+
+  // Handler to update paycheck amount override (for specific paycheck)
+  const handleUpdatePaycheckAmount = async (
+    sourceId: string,
+    paycheckDate: string,
+    amount: number
+  ) => {
+    try {
+      const response = await fetch('/api/paycheck-amounts', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ sourceId, paycheckDate, amount }),
+      });
+      if (response.ok) {
+        const updatedOverride = await response.json();
+        setPaycheckAmountOverrides((prev) => {
+          const existingIndex = prev.findIndex(
+            o => o.sourceId === sourceId && o.paycheckDate === paycheckDate
+          );
+          if (existingIndex >= 0) {
+            const newOverrides = [...prev];
+            newOverrides[existingIndex] = updatedOverride;
+            return newOverrides;
+          }
+          return [...prev, updatedOverride];
+        });
+      }
+    } catch (error) {
+      console.error('Failed to update paycheck amount:', error);
     }
   };
 
@@ -809,15 +855,23 @@ export default function BudgetPlanner() {
     }
 
     // Initialize allocations with all required properties including source info
-    const allocations: Allocation[] = allocationPayDatesWithSources.map((payDateInfo) => ({
-      payDate: payDateInfo.date,
-      bills: [],
-      suggestedChanges: [],
-      usedFunds: 0,
-      paycheckAmount: payDateInfo.amount * (1 - miscReserveFactor),
-      sourceName: payDateInfo.sourceName,
-      sourceId: payDateInfo.sourceId,
-    }));
+    const allocations: Allocation[] = allocationPayDatesWithSources.map((payDateInfo) => {
+      const paycheckDateStr = payDateInfo.date.toISOString().split('T')[0];
+      // Check for paycheck amount override
+      const override = paycheckAmountOverrides.find(
+        o => o.sourceId === payDateInfo.sourceId && o.paycheckDate === paycheckDateStr
+      );
+      const grossAmount = override ? override.amount : payDateInfo.amount;
+      return {
+        payDate: payDateInfo.date,
+        bills: [],
+        suggestedChanges: [],
+        usedFunds: 0,
+        paycheckAmount: grossAmount * (1 - miscReserveFactor),
+        sourceName: payDateInfo.sourceName,
+        sourceId: payDateInfo.sourceId,
+      };
+    });
 
     // Keep track of allocationPayDates for compatibility
     const allocationPayDates = allocationPayDatesWithSources.map(p => p.date);
@@ -1043,7 +1097,7 @@ export default function BudgetPlanner() {
 
     // Only return the requested number of pay periods
     setSchedule(allocations.slice(0, payDatesWithSources.length));
-  }, [bills, payDates, payDatesWithSources, income.miscPercent, billAssignments]);
+  }, [bills, payDates, payDatesWithSources, income.miscPercent, billAssignments, paycheckAmountOverrides]);
 
   // Generate suggestions from the schedule
 
@@ -1630,6 +1684,8 @@ export default function BudgetPlanner() {
               creditCardPayments={creditCardPayments}
               onToggleCreditCardPayment={handleToggleCreditCardPayment}
               onUpdateCreditCardBalance={(cardId, balance) => handleUpdateCreditCard(cardId, { balance })}
+              paycheckAmountOverrides={paycheckAmountOverrides}
+              onUpdatePaycheckAmount={handleUpdatePaycheckAmount}
             />
           </section>
         </div>
