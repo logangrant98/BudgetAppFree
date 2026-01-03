@@ -1128,11 +1128,11 @@ export default function BudgetPlanner() {
 
       // Add savings row (highlighted in green)
       tableRows.push([
-        { content: "💰 Savings Deposit", styles: { fontStyle: 'bold', textColor: [22, 101, 52] } },
+        { content: "Savings Deposit", styles: { fontStyle: 'bold', textColor: [22, 101, 52] } },
         { content: `$${savingsAmount.toFixed(2)}`, styles: { fontStyle: 'bold', textColor: [22, 101, 52] } },
-        { content: "—", styles: { textColor: [115, 115, 115] } },
+        { content: "-", styles: { textColor: [115, 115, 115] } },
         { content: "Transfer", styles: { textColor: [22, 101, 52] } },
-        { content: savingsDeposited ? "✓ Deposited" : "Pending", styles: { fontStyle: 'bold', textColor: savingsDeposited ? [22, 101, 52] : [202, 138, 4] } },
+        { content: savingsDeposited ? "Deposited" : "Pending", styles: { fontStyle: 'bold', textColor: savingsDeposited ? [22, 101, 52] : [202, 138, 4] } },
       ]);
 
       // Add bill rows
