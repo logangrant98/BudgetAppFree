@@ -1,13 +1,11 @@
 "use client";
-import React, { useState, useMemo, useEffect, useRef } from "react";
+import React, { useState, useMemo, useEffect } from "react";
 import { Income, IncomeSource, Bill, OneTimeBill, AllocatedBill, PaycheckSavings, BillPayment, BillPaycheckAmount } from "./(components)/types";
 import IncomeForm from "./(components)/IncomeForm";
 import BillForm from "./(components)/BillForm";
 import BillList from "./(components)/BillList/BillList";
 import PaymentSchedule from "./(components)/PaymentSchedule";
 import {
-  FileDown,
-  FileUp,
   Download,
   Wallet,
   TrendingUp,
@@ -58,7 +56,6 @@ export default function BudgetPlanner() {
   const [isSavingIncome, setIsSavingIncome] = useState(false);
   // Track manual bill-to-paycheck assignments (when user moves bills)
   const [billAssignments, setBillAssignments] = useState<Record<string, string>>({});
-  const fileInputRef = useRef<HTMLInputElement>(null);
   const { user, logout } = useAuth();
 
   // Load bill assignments from localStorage
@@ -870,59 +867,6 @@ export default function BudgetPlanner() {
 
   // Generate suggestions from the schedule
 
-  // Export Data to JSON
-  const handleExport = () => {
-    const data = { income, bills };
-    const jsonString = `data:text/json;charset=utf-8,${encodeURIComponent(
-      JSON.stringify(data)
-    )}`;
-    const link = document.createElement("a");
-    link.href = jsonString;
-    link.download = "budget_data.json";
-    link.click();
-  };
-
-  // Import Data from JSON
-  const handleImportClick = () => {
-    fileInputRef.current?.click();
-  };
-
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = (event) => {
-      if (event.target?.result) {
-        const importedData = JSON.parse(event.target.result as string);
-        if (importedData.income && importedData.bills) {
-          // Check if this is old format (has amount field instead of sources array)
-          if ('amount' in importedData.income && !importedData.income.sources) {
-            // Convert old format to new format
-            const oldIncome = importedData.income;
-            const convertedIncome: Income = {
-              sources: [{
-                id: `income-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-                name: "Primary Income",
-                amount: oldIncome.amount || 0,
-                frequency: oldIncome.frequency || "monthly",
-                lastPayDate: oldIncome.lastPayDate || "",
-                firstPayDay: oldIncome.firstPayDay,
-                secondPayDay: oldIncome.secondPayDay,
-              }],
-              miscPercent: oldIncome.miscPercent || 30,
-              monthsToShow: oldIncome.monthsToShow || 1,
-            };
-            setIncome(convertedIncome);
-          } else {
-            setIncome(importedData.income);
-          }
-          setBills(importedData.bills);
-        }
-      }
-    };
-    reader.readAsText(file);
-  };
-
   const handleDownloadPDF = () => {
     const doc = new jsPDF({ orientation: "portrait" });
 
@@ -1172,45 +1116,68 @@ export default function BudgetPlanner() {
       );
       scheduleY += 10;
 
-      if (alloc.bills.length > 0) {
-        autoTable(doc, {
-          startY: scheduleY,
-          head: [["Bill Name", "Payment", "APR", "Due Date", "Status"]],
-          body: alloc.bills.map((b) => {
-            const billDueDate = new Date(b.dueDate);
-            const daysLate = Math.ceil(
-              (new Date(alloc.payDate).getTime() - billDueDate.getTime()) /
-                (1000 * 60 * 60 * 24)
-            );
+      // Get savings info for this paycheck
+      const paycheckDateStr = alloc.payDate.toISOString().split('T')[0];
+      const grossPaycheck = alloc.paycheckAmount / (1 - income.miscPercent / 100);
+      const customSavings = paycheckSavings.find(s => s.paycheckDate === paycheckDateStr);
+      const savingsAmount = customSavings ? customSavings.amount : getDefaultSavingsForPaycheck(grossPaycheck);
+      const savingsDeposited = customSavings?.isDeposited || false;
 
-            return [
-              b.name,
-              `$${b.paymentAmount.toFixed(2)}`,
-              `${b.apr.toFixed(2)}%`,
-              b.dueDate,
-              b.isLate ? `Late (${daysLate} days)` : "On Time",
-            ];
-          }),
-          theme: "plain",
-          styles: {
-            fontSize: 9,
-            cellPadding: 3,
-            lineColor: [229, 229, 229],
-            lineWidth: 0.5,
-          },
-          headStyles: {
-            fillColor: [64, 64, 64],
-            textColor: 255,
-          },
-          alternateRowStyles: {
-            fillColor: [250, 250, 250],
-          },
-        });
-        scheduleY = doc.lastAutoTable.finalY + 12;
-      } else {
-        doc.text("No bills assigned to this paycheck.", 15, scheduleY);
-        scheduleY += 15;
-      }
+      // Build table rows - savings first, then bills
+      const tableRows: (string | { content: string; styles?: Record<string, unknown> })[][] = [];
+
+      // Add savings row (highlighted in green)
+      tableRows.push([
+        { content: "💰 Savings Deposit", styles: { fontStyle: 'bold', textColor: [22, 101, 52] } },
+        { content: `$${savingsAmount.toFixed(2)}`, styles: { fontStyle: 'bold', textColor: [22, 101, 52] } },
+        { content: "—", styles: { textColor: [115, 115, 115] } },
+        { content: "Transfer", styles: { textColor: [22, 101, 52] } },
+        { content: savingsDeposited ? "✓ Deposited" : "Pending", styles: { fontStyle: 'bold', textColor: savingsDeposited ? [22, 101, 52] : [202, 138, 4] } },
+      ]);
+
+      // Add bill rows
+      alloc.bills.forEach((b) => {
+        const billDueDate = new Date(b.dueDate);
+        const daysLate = Math.ceil(
+          (new Date(alloc.payDate).getTime() - billDueDate.getTime()) /
+            (1000 * 60 * 60 * 24)
+        );
+
+        tableRows.push([
+          b.name,
+          `$${b.paymentAmount.toFixed(2)}`,
+          `${b.apr.toFixed(2)}%`,
+          b.dueDate,
+          b.isLate ? `Late (${daysLate} days)` : "On Time",
+        ]);
+      });
+
+      autoTable(doc, {
+        startY: scheduleY,
+        head: [["Item", "Amount", "APR", "Due/Type", "Status"]],
+        body: tableRows,
+        theme: "plain",
+        styles: {
+          fontSize: 9,
+          cellPadding: 3,
+          lineColor: [229, 229, 229],
+          lineWidth: 0.5,
+        },
+        headStyles: {
+          fillColor: [64, 64, 64],
+          textColor: 255,
+        },
+        alternateRowStyles: {
+          fillColor: [250, 250, 250],
+        },
+        didParseCell: function(data) {
+          // Highlight savings row with green background
+          if (data.row.index === 0 && data.section === 'body') {
+            data.cell.styles.fillColor = [220, 252, 231]; // green-100
+          }
+        },
+      });
+      scheduleY = doc.lastAutoTable.finalY + 12;
     });
 
     doc.save("budget_planner_report.pdf");
@@ -1330,14 +1297,6 @@ export default function BudgetPlanner() {
             <div className="p-6 space-y-5">
               <div className="space-y-2">
                 <h3 className="font-bold text-neutral-900 flex items-center gap-2">
-                  <span className="bg-primary-500 text-neutral-900 w-6 h-6 rounded flex items-center justify-center text-sm font-bold">0</span>
-                  Import Previous Data
-                </h3>
-                <p className="text-neutral-600 ml-8">If you have previous data, import the JSON file to restore your budget.</p>
-              </div>
-
-              <div className="space-y-2">
-                <h3 className="font-bold text-neutral-900 flex items-center gap-2">
                   <span className="bg-primary-500 text-neutral-900 w-6 h-6 rounded flex items-center justify-center text-sm font-bold">1</span>
                   Income Setup
                 </h3>
@@ -1357,15 +1316,15 @@ export default function BudgetPlanner() {
                   <span className="bg-primary-500 text-neutral-900 w-6 h-6 rounded flex items-center justify-center text-sm font-bold">3</span>
                   Payment Schedule
                 </h3>
-                <p className="text-neutral-600 ml-8">View and adjust your monthly payment schedule to stay on track.</p>
+                <p className="text-neutral-600 ml-8">View your payment schedule. Each paycheck shows your savings deposit amount and bills due.</p>
               </div>
 
               <div className="space-y-2">
                 <h3 className="font-bold text-neutral-900 flex items-center gap-2">
                   <span className="bg-primary-500 text-neutral-900 w-6 h-6 rounded flex items-center justify-center text-sm font-bold">4</span>
-                  Export Data
+                  Track Progress
                 </h3>
-                <p className="text-neutral-600 ml-8">Save your data by exporting the JSON file to your local device.</p>
+                <p className="text-neutral-600 ml-8">Mark bills and savings as paid/deposited. Your data is automatically saved to your account.</p>
               </div>
 
               <div className="space-y-2">
@@ -1373,7 +1332,7 @@ export default function BudgetPlanner() {
                   <span className="bg-primary-500 text-neutral-900 w-6 h-6 rounded flex items-center justify-center text-sm font-bold">5</span>
                   Download PDF
                 </h3>
-                <p className="text-neutral-600 ml-8">For an easier way to view your schedule, download the PDF printout.</p>
+                <p className="text-neutral-600 ml-8">Download a PDF report showing your schedule with savings and bills for each paycheck.</p>
               </div>
             </div>
             <div className="p-4 bg-neutral-50 border-t border-neutral-200">
@@ -1391,33 +1350,7 @@ export default function BudgetPlanner() {
       {/* Action Bar */}
       <div className="bg-white border-b border-neutral-200 shadow-sm">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="py-4 flex flex-col sm:flex-row items-center justify-between gap-4">
-            <div className="flex items-center gap-3">
-              <button
-                onClick={handleExport}
-                className="flex items-center px-4 py-2 bg-neutral-900 text-white rounded font-medium hover:bg-neutral-800 transition-colors text-sm"
-              >
-                <FileDown className="w-4 h-4 mr-2" />
-                Export Data
-              </button>
-
-              <button
-                onClick={handleImportClick}
-                className="flex items-center px-4 py-2 bg-white text-neutral-700 rounded font-medium border border-neutral-300 hover:bg-neutral-50 transition-colors text-sm"
-              >
-                <FileUp className="w-4 h-4 mr-2" />
-                Import Data
-              </button>
-
-              <input
-                ref={fileInputRef}
-                type="file"
-                accept=".json"
-                className="hidden"
-                onChange={handleFileChange}
-              />
-            </div>
-
+          <div className="py-4 flex items-center justify-end">
             <button
               onClick={handleDownloadPDF}
               className="flex items-center px-4 py-2 bg-primary-500 text-neutral-900 rounded font-semibold hover:bg-primary-400 transition-colors text-sm"

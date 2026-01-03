@@ -540,122 +540,6 @@ export default function PaymentSchedule({
               </div>
             </div>
 
-            {/* Savings Section - Always at Top */}
-            <div className={`px-5 py-4 border-b-2 ${savingsInfo.isDeposited ? 'bg-green-50 border-green-200' : 'bg-green-50/50 border-green-100'}`}>
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <div className={`p-2 rounded-full ${savingsInfo.isDeposited ? 'bg-green-500' : 'bg-green-200'}`}>
-                    <PiggyBank className={`w-5 h-5 ${savingsInfo.isDeposited ? 'text-white' : 'text-green-700'}`} />
-                  </div>
-                  <div>
-                    <div className="flex items-center gap-2">
-                      <span className="text-sm font-bold text-green-800 uppercase tracking-wide">
-                        Savings Deposit
-                      </span>
-                      {savingsInfo.isCustom && (
-                        <span className="px-2 py-0.5 text-xs font-semibold rounded bg-blue-100 text-blue-700 uppercase">
-                          Custom
-                        </span>
-                      )}
-                    </div>
-                    <p className="text-xs text-green-600 mt-0.5">
-                      Transfer to savings account this paycheck
-                    </p>
-                  </div>
-                </div>
-
-                <div className="flex items-center gap-3">
-                  {isEditingSavings ? (
-                    <div className="flex items-center gap-2">
-                      <div className="relative">
-                        <DollarSign className="absolute left-2 top-1/2 -translate-y-1/2 w-4 h-4 text-neutral-400" />
-                        <input
-                          type="number"
-                          value={editingSavingsAmount}
-                          onChange={(e) => setEditingSavingsAmount(e.target.value)}
-                          className="w-28 pl-7 pr-2 py-1.5 border border-neutral-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-green-500 bg-white text-neutral-900"
-                          step="0.01"
-                          min="0"
-                          autoFocus
-                        />
-                      </div>
-                      <button
-                        onClick={() => handleSaveSavings(alloc.payDate)}
-                        className="p-1.5 bg-green-500 text-white rounded hover:bg-green-600 transition-colors disabled:opacity-50"
-                        title="Save"
-                        disabled={savingStates.has(dateStr)}
-                      >
-                        {savingStates.has(dateStr) ? (
-                          <Loader2 className="w-4 h-4 animate-spin" />
-                        ) : (
-                          <Check className="w-4 h-4" />
-                        )}
-                      </button>
-                      <button
-                        onClick={handleCancelEditSavings}
-                        className="p-1.5 bg-neutral-200 text-neutral-600 rounded hover:bg-neutral-300 transition-colors"
-                        title="Cancel"
-                      >
-                        <X className="w-4 h-4" />
-                      </button>
-                    </div>
-                  ) : (
-                    <>
-                      <div className="text-right">
-                        <p className={`text-xl font-bold ${savingsInfo.isDeposited ? 'text-green-600 line-through' : 'text-green-700'}`}>
-                          {formatCurrency(savingsInfo.amount)}
-                        </p>
-                        {savingsInfo.isDeposited && (
-                          <p className="text-xs font-semibold text-green-600 flex items-center justify-end gap-1">
-                            <CheckCircle className="w-3 h-3" />
-                            Deposited
-                          </p>
-                        )}
-                      </div>
-                      <button
-                        onClick={() => handleStartEditSavings(alloc.payDate, savingsInfo.amount)}
-                        className="p-2 bg-white border border-green-200 text-green-700 rounded hover:bg-green-100 transition-colors"
-                        title="Edit savings amount for this paycheck"
-                      >
-                        <Edit3 className="w-4 h-4" />
-                      </button>
-                      {savingsInfo.id ? (
-                        loadingSavingsDeposited.has(savingsInfo.id) ? (
-                          <div className="w-6 h-6 flex items-center justify-center">
-                            <Loader2 className="w-5 h-5 text-green-500 animate-spin" />
-                          </div>
-                        ) : (
-                          <button
-                            onClick={() => handleToggleSavingsDeposited(savingsInfo.id!, !savingsInfo.isDeposited)}
-                            className={`w-7 h-7 rounded-full border-2 flex items-center justify-center transition-all duration-300 ${
-                              savingsInfo.isDeposited
-                                ? 'bg-green-500 border-green-500'
-                                : 'border-green-300 hover:border-green-400 hover:bg-green-50'
-                            }`}
-                            title={savingsInfo.isDeposited ? "Mark as not deposited" : "Mark as deposited"}
-                          >
-                            {savingsInfo.isDeposited && (
-                              <Check className="w-4 h-4 text-white" />
-                            )}
-                          </button>
-                        )
-                      ) : (
-                        <button
-                          onClick={async () => {
-                            await onUpdatePaycheckSavings(dateStr, savingsInfo.amount);
-                          }}
-                          className="px-3 py-1.5 bg-green-600 text-white text-xs font-semibold rounded hover:bg-green-700 transition-colors"
-                          title="Save to track this deposit"
-                        >
-                          Track
-                        </button>
-                      )}
-                    </>
-                  )}
-                </div>
-              </div>
-            </div>
-
             {/* Stats Grid */}
             <div className="grid grid-cols-3 border-b border-neutral-200">
               <div className="p-2 sm:p-4 border-r border-neutral-200">
@@ -700,37 +584,174 @@ export default function PaymentSchedule({
               </div>
             </div>
 
-            {/* Bills Table */}
-            {alloc.bills.length > 0 ? (
-              <div className="overflow-x-auto">
-                <table className="min-w-full">
-                  <thead>
-                    <tr className="bg-neutral-50 border-b border-neutral-200">
-                      <th className="px-3 py-3 text-center text-xs font-semibold text-neutral-500 uppercase tracking-wide w-12">
-                        Paid
-                      </th>
-                      <th className="px-5 py-3 text-left text-xs font-semibold text-neutral-500 uppercase tracking-wide">
-                        Bill
-                      </th>
-                      <th className="px-5 py-3 text-right text-xs font-semibold text-neutral-500 uppercase tracking-wide">
-                        Amount
-                      </th>
-                      <th className="px-5 py-3 text-right text-xs font-semibold text-neutral-500 uppercase tracking-wide">
-                        APR
-                      </th>
-                      <th className="px-5 py-3 text-left text-xs font-semibold text-neutral-500 uppercase tracking-wide">
-                        Due
-                      </th>
-                      <th className="px-5 py-3 text-center text-xs font-semibold text-neutral-500 uppercase tracking-wide">
-                        Status
-                      </th>
-                      <th className="px-5 py-3 text-center text-xs font-semibold text-neutral-500 uppercase tracking-wide">
-                        Move
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-neutral-100">
-                    {alloc.bills.map((bill) => {
+            {/* Bills & Savings Table */}
+            <div className="overflow-x-auto">
+              <table className="min-w-full">
+                <thead>
+                  <tr className="bg-neutral-50 border-b border-neutral-200">
+                    <th className="px-3 py-3 text-center text-xs font-semibold text-neutral-500 uppercase tracking-wide w-12">
+                      Done
+                    </th>
+                    <th className="px-5 py-3 text-left text-xs font-semibold text-neutral-500 uppercase tracking-wide">
+                      Item
+                    </th>
+                    <th className="px-5 py-3 text-right text-xs font-semibold text-neutral-500 uppercase tracking-wide">
+                      Amount
+                    </th>
+                    <th className="px-5 py-3 text-right text-xs font-semibold text-neutral-500 uppercase tracking-wide">
+                      APR
+                    </th>
+                    <th className="px-5 py-3 text-left text-xs font-semibold text-neutral-500 uppercase tracking-wide">
+                      Due/Type
+                    </th>
+                    <th className="px-5 py-3 text-center text-xs font-semibold text-neutral-500 uppercase tracking-wide">
+                      Status
+                    </th>
+                    <th className="px-5 py-3 text-center text-xs font-semibold text-neutral-500 uppercase tracking-wide">
+                      Actions
+                    </th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-neutral-100">
+                  {/* Savings Row - Always First */}
+                  <tr className={`${savingsInfo.isDeposited ? 'bg-green-50' : 'bg-green-50/50'} transition-colors`}>
+                    <td className="px-3 py-4 whitespace-nowrap text-center">
+                      {savingsInfo.id ? (
+                        loadingSavingsDeposited.has(savingsInfo.id) ? (
+                          <div className="w-7 h-7 flex items-center justify-center">
+                            <Loader2 className="w-5 h-5 text-green-500 animate-spin" />
+                          </div>
+                        ) : (
+                          <button
+                            onClick={() => handleToggleSavingsDeposited(savingsInfo.id!, !savingsInfo.isDeposited)}
+                            className={`relative w-7 h-7 rounded-full border-2 flex items-center justify-center transition-all duration-300 ${
+                              savingsInfo.isDeposited
+                                ? 'bg-green-500 border-green-500'
+                                : 'border-green-300 hover:border-green-400 hover:bg-green-100'
+                            }`}
+                            title={savingsInfo.isDeposited ? "Mark as not deposited" : "Mark as deposited"}
+                          >
+                            {savingsInfo.isDeposited && (
+                              <Check className="w-4 h-4 text-white" />
+                            )}
+                          </button>
+                        )
+                      ) : (
+                        <div className="w-7 h-7 rounded-full border-2 border-dashed border-green-300 flex items-center justify-center">
+                          <Circle className="w-3 h-3 text-green-400" />
+                        </div>
+                      )}
+                    </td>
+                    <td className="px-5 py-4 whitespace-nowrap">
+                      <div className="flex items-center gap-2">
+                        <PiggyBank className={`w-4 h-4 ${savingsInfo.isDeposited ? 'text-green-500' : 'text-green-600'}`} />
+                        <span className={`text-sm font-semibold transition-all duration-300 ${
+                          savingsInfo.isDeposited ? 'line-through text-green-500' : 'text-green-700'
+                        }`}>
+                          Savings Deposit
+                        </span>
+                        <span className="px-2 py-0.5 text-xs font-semibold rounded bg-green-200 text-green-800 uppercase tracking-wide">
+                          Savings
+                        </span>
+                        {savingsInfo.isCustom && (
+                          <span className="px-2 py-0.5 text-xs font-semibold rounded bg-blue-100 text-blue-700 uppercase">
+                            Custom
+                          </span>
+                        )}
+                      </div>
+                    </td>
+                    <td className="px-5 py-4 whitespace-nowrap text-right">
+                      {isEditingSavings ? (
+                        <div className="flex items-center justify-end gap-1">
+                          <div className="relative">
+                            <DollarSign className="absolute left-2 top-1/2 -translate-y-1/2 w-3 h-3 text-neutral-400" />
+                            <input
+                              type="number"
+                              value={editingSavingsAmount}
+                              onChange={(e) => setEditingSavingsAmount(e.target.value)}
+                              className="w-24 pl-6 pr-2 py-1 border border-green-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-green-500 bg-white text-neutral-900 text-right"
+                              step="0.01"
+                              min="0"
+                              autoFocus
+                              onKeyDown={(e) => {
+                                if (e.key === 'Enter') {
+                                  handleSaveSavings(alloc.payDate);
+                                } else if (e.key === 'Escape') {
+                                  handleCancelEditSavings();
+                                }
+                              }}
+                            />
+                          </div>
+                          <button
+                            onClick={() => handleSaveSavings(alloc.payDate)}
+                            className="p-1 bg-green-500 text-white rounded hover:bg-green-600 transition-colors disabled:opacity-50"
+                            title="Save"
+                            disabled={savingStates.has(dateStr)}
+                          >
+                            {savingStates.has(dateStr) ? (
+                              <Loader2 className="w-3 h-3 animate-spin" />
+                            ) : (
+                              <Check className="w-3 h-3" />
+                            )}
+                          </button>
+                          <button
+                            onClick={handleCancelEditSavings}
+                            className="p-1 bg-neutral-200 text-neutral-600 rounded hover:bg-neutral-300 transition-colors"
+                            title="Cancel"
+                          >
+                            <X className="w-3 h-3" />
+                          </button>
+                        </div>
+                      ) : (
+                        <button
+                          onClick={() => handleStartEditSavings(alloc.payDate, savingsInfo.amount)}
+                          className="group flex items-center justify-end gap-1 hover:bg-green-100 px-2 py-1 rounded transition-colors cursor-pointer"
+                          title="Click to edit savings amount"
+                        >
+                          <span className={`text-sm font-semibold transition-all duration-300 ${
+                            savingsInfo.isDeposited ? 'line-through text-green-500' : 'text-green-700'
+                          }`}>
+                            {formatCurrency(savingsInfo.amount)}
+                          </span>
+                          <Edit3 className="w-3 h-3 text-green-500 opacity-0 group-hover:opacity-100 transition-opacity" />
+                        </button>
+                      )}
+                    </td>
+                    <td className="px-5 py-4 whitespace-nowrap text-right">
+                      <span className="text-sm text-green-600">—</span>
+                    </td>
+                    <td className="px-5 py-4 whitespace-nowrap">
+                      <span className="text-sm text-green-600">Transfer</span>
+                    </td>
+                    <td className="px-5 py-4 whitespace-nowrap text-center">
+                      {savingsInfo.isDeposited ? (
+                        <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded text-xs font-semibold bg-green-100 text-green-800">
+                          <CheckCircle className="w-3 h-3" />
+                          Deposited
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded text-xs font-semibold bg-yellow-100 text-yellow-800">
+                          <Clock className="w-3 h-3" />
+                          Pending
+                        </span>
+                      )}
+                    </td>
+                    <td className="px-5 py-4 whitespace-nowrap text-center">
+                      {!savingsInfo.id && (
+                        <button
+                          onClick={async () => {
+                            await onUpdatePaycheckSavings(dateStr, savingsInfo.amount);
+                          }}
+                          className="px-3 py-1.5 bg-green-600 text-white text-xs font-semibold rounded hover:bg-green-700 transition-colors"
+                          title="Save to track this deposit"
+                        >
+                          Track
+                        </button>
+                      )}
+                    </td>
+                  </tr>
+                  {/* Bill Rows */}
+                  {alloc.bills.map((bill) => {
                       const dueDate = new Date(bill.dueDate);
                       const payDate = alloc.payDate;
                       const daysDiff = getDateDifference(dueDate, payDate);
@@ -957,56 +978,8 @@ export default function PaymentSchedule({
                         </tr>
                       );
                     })}
-                  </tbody>
-                </table>
-              </div>
-            ) : null}
-
-            {/* One-Time Bills Section - Rendered as table rows like regular bills */}
-            {(() => {
-              const paycheckOneTimeBills = getOneTimeBillsForPaycheck(alloc.payDate);
-              if (paycheckOneTimeBills.length === 0 && alloc.bills.length === 0) {
-                return (
-                  <div className="p-8 text-center">
-                    <div className="w-12 h-12 bg-neutral-100 rounded-full flex items-center justify-center mx-auto mb-3">
-                      <DollarSign className="w-6 h-6 text-neutral-400" />
-                    </div>
-                    <p className="text-neutral-500 font-medium">No bills for this pay period</p>
-                    <p className="text-neutral-400 text-sm mt-1">Click the + button to add a one-time bill</p>
-                  </div>
-                );
-              }
-              if (paycheckOneTimeBills.length === 0) return null;
-
-              return (
-                <div className="overflow-x-auto border-t border-neutral-200">
-                  <table className="min-w-full">
-                    {alloc.bills.length === 0 && (
-                      <thead>
-                        <tr className="bg-neutral-50 border-b border-neutral-200">
-                          <th className="px-3 py-3 text-center text-xs font-semibold text-neutral-500 uppercase tracking-wide w-12">
-                            Paid
-                          </th>
-                          <th className="px-5 py-3 text-left text-xs font-semibold text-neutral-500 uppercase tracking-wide">
-                            Bill
-                          </th>
-                          <th className="px-5 py-3 text-right text-xs font-semibold text-neutral-500 uppercase tracking-wide">
-                            Amount
-                          </th>
-                          <th className="px-5 py-3 text-left text-xs font-semibold text-neutral-500 uppercase tracking-wide">
-                            Due
-                          </th>
-                          <th className="px-5 py-3 text-center text-xs font-semibold text-neutral-500 uppercase tracking-wide">
-                            Status
-                          </th>
-                          <th className="px-5 py-3 text-center text-xs font-semibold text-neutral-500 uppercase tracking-wide">
-                            Actions
-                          </th>
-                        </tr>
-                      </thead>
-                    )}
-                    <tbody className="divide-y divide-neutral-100">
-                      {paycheckOneTimeBills.map((bill) => {
+                  {/* One-Time Bills - integrated into the same table */}
+                  {getOneTimeBillsForPaycheck(alloc.payDate).map((bill) => {
                         const isLoading = loadingOneTimeBills.has(bill.id);
                         const rowClass = bill.isPaid
                           ? "bg-green-50/50"
@@ -1067,6 +1040,9 @@ export default function PaymentSchedule({
                                 {formatCurrency(bill.amount)}
                               </span>
                             </td>
+                            <td className="px-5 py-4 whitespace-nowrap text-right">
+                              <span className="text-sm text-neutral-400">—</span>
+                            </td>
                             <td className="px-5 py-4 whitespace-nowrap">
                               <span className={`text-sm ${bill.isPaid ? 'text-neutral-400' : 'text-neutral-600'}`}>
                                 {bill.dueDate ? new Date(bill.dueDate).toLocaleDateString("en-US", {
@@ -1100,11 +1076,9 @@ export default function PaymentSchedule({
                           </tr>
                         );
                       })}
-                    </tbody>
-                  </table>
-                </div>
-              );
-            })()}
+                </tbody>
+              </table>
+            </div>
 
             {/* Suggestions Section */}
             {showSuggestions && alloc.suggestedChanges.length > 0 && (
