@@ -162,7 +162,7 @@ export default function CreditCardList({
                         type="text"
                         value={editForm.name || ''}
                         onChange={(e) => setEditForm(prev => ({ ...prev, name: e.target.value }))}
-                        className="w-full px-2 py-1.5 border border-neutral-300 rounded text-sm focus:ring-1 focus:ring-neutral-500"
+                        className="w-full px-2 py-1.5 border border-neutral-300 rounded text-sm bg-white text-neutral-900 focus:ring-1 focus:ring-neutral-500"
                       />
                     </div>
                     <div>
@@ -173,7 +173,7 @@ export default function CreditCardList({
                           type="number"
                           value={editForm.balance || 0}
                           onChange={(e) => setEditForm(prev => ({ ...prev, balance: parseFloat(e.target.value) || 0 }))}
-                          className="w-full pl-6 pr-2 py-1.5 border border-neutral-300 rounded text-sm focus:ring-1 focus:ring-neutral-500"
+                          className="w-full pl-6 pr-2 py-1.5 border border-neutral-300 rounded text-sm bg-white text-neutral-900 focus:ring-1 focus:ring-neutral-500"
                           step="0.01"
                         />
                       </div>
@@ -186,7 +186,7 @@ export default function CreditCardList({
                           type="number"
                           value={editForm.minimumPayment || 0}
                           onChange={(e) => setEditForm(prev => ({ ...prev, minimumPayment: parseFloat(e.target.value) || 0 }))}
-                          className="w-full pl-6 pr-2 py-1.5 border border-neutral-300 rounded text-sm focus:ring-1 focus:ring-neutral-500"
+                          className="w-full pl-6 pr-2 py-1.5 border border-neutral-300 rounded text-sm bg-white text-neutral-900 focus:ring-1 focus:ring-neutral-500"
                           step="0.01"
                         />
                       </div>
@@ -199,7 +199,7 @@ export default function CreditCardList({
                           type="number"
                           value={editForm.recommendedPayment || 0}
                           onChange={(e) => setEditForm(prev => ({ ...prev, recommendedPayment: parseFloat(e.target.value) || 0 }))}
-                          className="w-full pl-6 pr-2 py-1.5 border border-neutral-300 rounded text-sm focus:ring-1 focus:ring-neutral-500"
+                          className="w-full pl-6 pr-2 py-1.5 border border-neutral-300 rounded text-sm bg-white text-neutral-900 focus:ring-1 focus:ring-neutral-500"
                           step="0.01"
                         />
                       </div>
@@ -212,7 +212,7 @@ export default function CreditCardList({
                           type="number"
                           value={editForm.apr || 0}
                           onChange={(e) => setEditForm(prev => ({ ...prev, apr: parseFloat(e.target.value) || 0 }))}
-                          className="w-full pl-6 pr-2 py-1.5 border border-neutral-300 rounded text-sm focus:ring-1 focus:ring-neutral-500"
+                          className="w-full pl-6 pr-2 py-1.5 border border-neutral-300 rounded text-sm bg-white text-neutral-900 focus:ring-1 focus:ring-neutral-500"
                           step="0.01"
                         />
                       </div>
@@ -222,7 +222,7 @@ export default function CreditCardList({
                       <select
                         value={editForm.dueDate || '1'}
                         onChange={(e) => setEditForm(prev => ({ ...prev, dueDate: e.target.value }))}
-                        className="w-full px-2 py-1.5 border border-neutral-300 rounded text-sm focus:ring-1 focus:ring-neutral-500"
+                        className="w-full px-2 py-1.5 border border-neutral-300 rounded text-sm bg-white text-neutral-900 focus:ring-1 focus:ring-neutral-500"
                       >
                         {Array.from({ length: 31 }, (_, i) => i + 1).map(day => (
                           <option key={day} value={day.toString()}>{day}</option>

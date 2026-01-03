@@ -66,6 +66,7 @@ interface PaymentScheduleProps {
   creditCards: CreditCard[];
   creditCardPayments: CreditCardPayment[];
   onToggleCreditCardPayment: (creditCardId: string, paycheckDate: string, amount: number, isPaid: boolean, extraPayment?: number) => Promise<void>;
+  onUpdateCreditCardPaymentAmount: (creditCardId: string, paycheckDate: string, amount: number) => Promise<void>;
   onUpdateCreditCardBalance: (cardId: string, balance: number) => Promise<void>;
   paycheckAmountOverrides: PaycheckAmountOverride[];
   onUpdatePaycheckAmount: (sourceId: string, paycheckDate: string, amount: number) => Promise<void>;
@@ -111,6 +112,7 @@ export default function PaymentSchedule({
   creditCards,
   creditCardPayments,
   onToggleCreditCardPayment,
+  onUpdateCreditCardPaymentAmount,
   onUpdateCreditCardBalance,
   paycheckAmountOverrides,
   onUpdatePaycheckAmount
@@ -140,6 +142,10 @@ export default function PaymentSchedule({
   const [savingBalances, setSavingBalances] = useState<Set<string>>(new Set());
   const [editingExtraPayment, setEditingExtraPayment] = useState<string | null>(null);
   const [extraPaymentAmount, setExtraPaymentAmount] = useState<string>("");
+  // State for editing credit card payment amount per paycheck
+  const [editingCreditCardPaymentKey, setEditingCreditCardPaymentKey] = useState<string | null>(null);
+  const [editingCreditCardPaymentAmount, setEditingCreditCardPaymentAmount] = useState<string>("");
+  const [savingCreditCardPaymentAmounts, setSavingCreditCardPaymentAmounts] = useState<Set<string>>(new Set());
   // State for editing paycheck amounts
   const [editingPaycheckAmountKey, setEditingPaycheckAmountKey] = useState<string | null>(null);
   const [editingPaycheckAmount, setEditingPaycheckAmount] = useState<string>("");
@@ -459,6 +465,38 @@ export default function PaymentSchedule({
     }
     setEditingCreditCardBalance(null);
     setEditingBalanceAmount("");
+  };
+
+  // Handle starting edit mode for credit card payment amount
+  const handleStartEditCreditCardPayment = (paymentKey: string, currentAmount: number) => {
+    setEditingCreditCardPaymentKey(paymentKey);
+    setEditingCreditCardPaymentAmount(currentAmount.toString());
+  };
+
+  // Handle saving edited credit card payment amount
+  const handleSaveCreditCardPaymentAmount = async (cardId: string, paycheckDate: string) => {
+    const amount = parseFloat(editingCreditCardPaymentAmount);
+    if (!isNaN(amount) && amount >= 0) {
+      const paymentKey = `${cardId}-${paycheckDate}`;
+      setSavingCreditCardPaymentAmounts(prev => new Set(prev).add(paymentKey));
+      try {
+        await onUpdateCreditCardPaymentAmount(cardId, paycheckDate, amount);
+      } finally {
+        setSavingCreditCardPaymentAmounts(prev => {
+          const next = new Set(prev);
+          next.delete(paymentKey);
+          return next;
+        });
+      }
+    }
+    setEditingCreditCardPaymentKey(null);
+    setEditingCreditCardPaymentAmount("");
+  };
+
+  // Handle canceling credit card payment amount edit
+  const handleCancelEditCreditCardPayment = () => {
+    setEditingCreditCardPaymentKey(null);
+    setEditingCreditCardPaymentAmount("");
   };
 
   // Helper function to determine which credit cards are due on a specific paycheck
@@ -1443,60 +1481,124 @@ export default function PaymentSchedule({
                               </div>
                             </td>
                             <td className="px-5 py-4 whitespace-nowrap text-right">
-                              <div className="flex flex-col items-end gap-1">
-                                <span className={`text-sm font-semibold ${isPaid ? 'line-through text-neutral-400' : 'text-neutral-900'}`}>
-                                  {formatCurrency(paymentAmount)}
-                                </span>
-                                {!isPaid && (
-                                  <div className="flex items-center gap-1">
-                                    {isEditingExtra ? (
+                              {(() => {
+                                const isEditingThisPayment = editingCreditCardPaymentKey === paymentKey;
+                                const isSavingThisPayment = savingCreditCardPaymentAmounts.has(paymentKey);
+
+                                if (isEditingThisPayment) {
+                                  return (
+                                    <div className="flex items-center justify-end gap-1">
+                                      <div className="relative">
+                                        <DollarSign className="absolute left-2 top-1/2 -translate-y-1/2 w-3 h-3 text-neutral-400" />
+                                        <input
+                                          type="number"
+                                          value={editingCreditCardPaymentAmount}
+                                          onChange={(e) => setEditingCreditCardPaymentAmount(e.target.value)}
+                                          className="w-24 pl-6 pr-2 py-1 border border-neutral-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 bg-white text-neutral-900 text-right"
+                                          step="0.01"
+                                          min="0"
+                                          autoFocus
+                                          onKeyDown={(e) => {
+                                            if (e.key === 'Enter') {
+                                              handleSaveCreditCardPaymentAmount(card.id, dateStr);
+                                            } else if (e.key === 'Escape') {
+                                              handleCancelEditCreditCardPayment();
+                                            }
+                                          }}
+                                        />
+                                      </div>
+                                      <button
+                                        onClick={() => handleSaveCreditCardPaymentAmount(card.id, dateStr)}
+                                        className="p-1 bg-green-500 text-white rounded hover:bg-green-600 transition-colors disabled:opacity-50"
+                                        title="Save"
+                                        disabled={isSavingThisPayment}
+                                      >
+                                        {isSavingThisPayment ? (
+                                          <Loader2 className="w-3 h-3 animate-spin" />
+                                        ) : (
+                                          <Check className="w-3 h-3" />
+                                        )}
+                                      </button>
+                                      <button
+                                        onClick={handleCancelEditCreditCardPayment}
+                                        className="p-1 bg-neutral-200 text-neutral-600 rounded hover:bg-neutral-300 transition-colors"
+                                        title="Cancel"
+                                      >
+                                        <X className="w-3 h-3" />
+                                      </button>
+                                    </div>
+                                  );
+                                }
+
+                                return (
+                                  <div className="flex flex-col items-end gap-1">
+                                    <button
+                                      onClick={() => !isPaid && handleStartEditCreditCardPayment(paymentKey, paymentAmount)}
+                                      className={`group flex items-center justify-end gap-1 hover:bg-neutral-100 px-2 py-1 rounded transition-colors ${
+                                        isPaid ? 'cursor-default' : 'cursor-pointer'
+                                      }`}
+                                      disabled={isPaid}
+                                      title={isPaid ? "Payment is complete" : "Click to edit payment amount for this paycheck"}
+                                    >
+                                      <span className={`text-sm font-semibold ${isPaid ? 'line-through text-neutral-400' : 'text-neutral-900'}`}>
+                                        {formatCurrency(paymentAmount)}
+                                      </span>
+                                      {!isPaid && (
+                                        <Edit3 className="w-3 h-3 text-neutral-400 opacity-0 group-hover:opacity-100 transition-opacity" />
+                                      )}
+                                    </button>
+                                    {!isPaid && (
                                       <div className="flex items-center gap-1">
-                                        <span className="text-xs text-neutral-500">+</span>
-                                        <div className="relative">
-                                          <DollarSign className="absolute left-1 top-1/2 -translate-y-1/2 w-2.5 h-2.5 text-neutral-400" />
-                                          <input
-                                            type="number"
-                                            value={extraPaymentAmount}
-                                            onChange={(e) => setExtraPaymentAmount(e.target.value)}
-                                            className="w-16 pl-4 pr-1 py-0.5 border border-green-300 rounded text-xs focus:outline-none focus:ring-1 focus:ring-green-500"
-                                            step="0.01"
-                                            min="0"
-                                            placeholder="Extra"
-                                            autoFocus
-                                            onKeyDown={(e) => {
-                                              if (e.key === 'Escape') {
+                                        {isEditingExtra ? (
+                                          <div className="flex items-center gap-1">
+                                            <span className="text-xs text-neutral-500">+</span>
+                                            <div className="relative">
+                                              <DollarSign className="absolute left-1 top-1/2 -translate-y-1/2 w-2.5 h-2.5 text-neutral-400" />
+                                              <input
+                                                type="number"
+                                                value={extraPaymentAmount}
+                                                onChange={(e) => setExtraPaymentAmount(e.target.value)}
+                                                className="w-16 pl-4 pr-1 py-0.5 border border-green-300 rounded text-xs focus:outline-none focus:ring-1 focus:ring-green-500 bg-white text-neutral-900"
+                                                step="0.01"
+                                                min="0"
+                                                placeholder="Extra"
+                                                autoFocus
+                                                onKeyDown={(e) => {
+                                                  if (e.key === 'Escape') {
+                                                    setEditingExtraPayment(null);
+                                                    setExtraPaymentAmount("");
+                                                  }
+                                                }}
+                                              />
+                                            </div>
+                                            <button
+                                              onClick={() => {
                                                 setEditingExtraPayment(null);
                                                 setExtraPaymentAmount("");
-                                              }
+                                              }}
+                                              className="p-0.5 text-neutral-400 hover:text-neutral-600"
+                                            >
+                                              <X className="w-3 h-3" />
+                                            </button>
+                                          </div>
+                                        ) : (
+                                          <button
+                                            onClick={() => {
+                                              setEditingExtraPayment(paymentKey);
+                                              setExtraPaymentAmount("");
                                             }}
-                                          />
-                                        </div>
-                                        <button
-                                          onClick={() => {
-                                            setEditingExtraPayment(null);
-                                            setExtraPaymentAmount("");
-                                          }}
-                                          className="p-0.5 text-neutral-400 hover:text-neutral-600"
-                                        >
-                                          <X className="w-3 h-3" />
-                                        </button>
+                                            className="flex items-center gap-1 text-xs text-green-600 hover:text-green-700 font-medium"
+                                            title="Add extra payment (snowball)"
+                                          >
+                                            <Zap className="w-3 h-3" />
+                                            Extra
+                                          </button>
+                                        )}
                                       </div>
-                                    ) : (
-                                      <button
-                                        onClick={() => {
-                                          setEditingExtraPayment(paymentKey);
-                                          setExtraPaymentAmount("");
-                                        }}
-                                        className="flex items-center gap-1 text-xs text-green-600 hover:text-green-700 font-medium"
-                                        title="Add extra payment (snowball)"
-                                      >
-                                        <Zap className="w-3 h-3" />
-                                        Extra
-                                      </button>
                                     )}
                                   </div>
-                                )}
-                              </div>
+                                );
+                              })()}
                             </td>
                             <td className="px-5 py-4 whitespace-nowrap text-right">
                               <span className={`text-sm ${isPaid ? 'text-neutral-400' : 'text-neutral-600'}`}>

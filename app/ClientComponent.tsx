@@ -526,6 +526,49 @@ export default function BudgetPlanner() {
     }
   };
 
+  // Handler to update credit card payment amount for a specific paycheck
+  const handleUpdateCreditCardPaymentAmount = async (
+    creditCardId: string,
+    paycheckDate: string,
+    amount: number
+  ) => {
+    if (!user) return;
+    try {
+      // Get existing payment to preserve isPaid status
+      const existingPayment = creditCardPayments.find(
+        p => p.creditCardId === creditCardId && p.paycheckDate === paycheckDate
+      );
+      const isPaid = existingPayment?.isPaid || false;
+
+      const response = await fetch('/api/credit-card-payments', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          creditCardId,
+          paycheckDate,
+          amount,
+          isPaid,
+        }),
+      });
+      if (response.ok) {
+        const payment = await response.json();
+        setCreditCardPayments((prev) => {
+          const existingIndex = prev.findIndex(
+            p => p.creditCardId === creditCardId && p.paycheckDate === paycheckDate
+          );
+          if (existingIndex >= 0) {
+            const newPayments = [...prev];
+            newPayments[existingIndex] = payment;
+            return newPayments;
+          }
+          return [...prev, payment];
+        });
+      }
+    } catch (error) {
+      console.error('Failed to update credit card payment amount:', error);
+    }
+  };
+
   // Handler to update paycheck amount override (for specific paycheck)
   const handleUpdatePaycheckAmount = async (
     sourceId: string,
@@ -1828,6 +1871,7 @@ export default function BudgetPlanner() {
               creditCards={creditCards}
               creditCardPayments={creditCardPayments}
               onToggleCreditCardPayment={handleToggleCreditCardPayment}
+              onUpdateCreditCardPaymentAmount={handleUpdateCreditCardPaymentAmount}
               onUpdateCreditCardBalance={(cardId, balance) => handleUpdateCreditCard(cardId, { balance })}
               paycheckAmountOverrides={paycheckAmountOverrides}
               onUpdatePaycheckAmount={handleUpdatePaycheckAmount}
